@@ -599,12 +599,39 @@ export function KbFlip() {
 }
 
 export function Diacritics() {
-  const [t, setT] = useState('السَّلَامُ عَلَيْكُم');
-  const r = t.replace(/[\u064B-\u0652\u0670\u0640]/g, '');
+  const [t, setT] = useState('السلام عليكم ورحمة الله وبركاته');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const remove = () => setOutput(t.replace(/[\u064B-\u0652\u0670\u0640]/g, ''));
+
+  const add = async () => {
+    if (!t.trim()) return;
+    setLoading(true); setOutput('');
+    try {
+      const r = await (await import('axios')).default.post(`${process.env.REACT_APP_BACKEND_URL}/api/ai/tashkeel`, { text: t });
+      setOutput(r.data.text);
+    } catch { toast.error('تعذّر إضافة التشكيل، حاول لاحقاً'); }
+    finally { setLoading(false); }
+  };
+
   return (
     <div className="space-y-5">
-      <textarea data-testid="di-input" value={t} onChange={(e) => setT(e.target.value)} rows={4} className="w-full rounded-xl border border-input bg-background px-4 py-3" />
-      <ResultBox label="بدون تشكيل" value={r} testid="di-result" />
+      <textarea data-testid="di-input" value={t} onChange={(e) => setT(e.target.value)} rows={5} className="w-full rounded-xl border border-input bg-background px-4 py-3 leading-loose" style={{ fontFamily: 'Amiri, serif' }} />
+      <div className="flex gap-2">
+        <Button testid="di-add" onClick={add} disabled={loading}>{loading ? 'جاري الإضافة...' : 'أضف التشكيل بالذكاء الاصطناعي'}</Button>
+        <Button testid="di-remove" variant="ghost" onClick={remove}>إزالة التشكيل</Button>
+      </div>
+      {output && (
+        <div data-testid="di-result" className="rounded-2xl border-2 border-dashed border-[#D4AF37]/40 p-5 text-xl leading-loose" style={{ fontFamily: 'Amiri, serif' }}>
+          {output}
+          <div className="mt-3">
+            <Button testid="di-copy" variant="ghost" onClick={() => { navigator.clipboard.writeText(output); toast.success('تم النسخ'); }}>
+              <Copy className="h-4 w-4" /> نسخ
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

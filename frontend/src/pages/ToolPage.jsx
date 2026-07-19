@@ -7,6 +7,8 @@ import * as F from '../tools/finance';
 import * as I from '../tools/islamic';
 import * as H from '../tools/health_edu';
 import * as D from '../tools/dev_fun_misc';
+import * as AI from '../tools/ai_tools';
+import { QRReader } from '../tools/qr_reader';
 
 const MAP = {
   // finance
@@ -65,6 +67,7 @@ const MAP = {
   'car-insurance': H.CarInsurance,
   // dev
   'qr-generator': D.QRGenerator,
+  'qr-reader': QRReader,
   'password': D.PasswordGen,
   'json-format': D.JsonFormat,
   'base64': D.Base64Tool,
@@ -98,6 +101,7 @@ const MAP = {
   'kb-flip': D.KbFlip,
   'diacritics': D.Diacritics,
   // misc
+  'ai-bio': AI.AiBio,
   'ai-sites': D.AiSites,
   'countdown': D.Countdown,
   'pomodoro': D.Pomodoro,

@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 2 testing complete. Backend: 24/24 pytest passing (health, contact, prayer/currency/gold [gold-price now realistic ~$4000+/oz, previous bug fixed], public config/pages/tool-overrides, admin auth [login/verify/protection], admin CRUD [pages create/read/update/delete with duplicate-slug 400, tool overrides upsert/delete, config PUT reflected in public GET, contacts protected], AI bio [Claude via emergentintegrations returned 304-char Arabic bio in ~8s], AI tashkeel [returned tashkeeled text]). Frontend: scroll-to-top verified across /tool/bmi, /tool/zakat, /tool/diacritics, /tool/qr-reader, /tool/prayer-times, /tool/ai-bio (all scrollY=0 after nav despite pre-nav scroll to bottom). Universal share bar present on tool pages (share-wa/tw/tg/fb/sc/copy/image/pdf/native + pwa-install-page all rendered). Save-as-Image and Save-as-PDF click without console errors. Diacritics tool renders di-remove + di-add, AI tashkeel returns correctly diacritized text (verified visually: الْعِلْمُ نُورٌ وَالْجَهْلُ ظَلَامٌ). AI Bio tool generates real Arabic bio via Claude. QR Reader qrr-start renders. Prayer Times pt-toggle-alerts/pt-adhan-url/pt-test-adhan all present. Home /: section-editor-picks (default 8 picks) and section-latest render, section-most-used correctly hidden initially and appears after visiting BMI + Zakat. Admin /admin: login form → after admin/Matar@2026 all 4 tabs (pages/tools/config/messages) render with admin-new-page, cf-ga, admin-tool-toggle-zakat, and messages listing all visible. Full round-trip verified: admin creates page → public GET /api/pages/{slug} → delete → 404.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L96-106: verify_admin decodes JWT but does not check the token's exp explicitly (PyJWT does this by default). Fine as-is but consider explicit expired-token 401 message for better UX.",
+    "server.py L302-305: /api/admin/contacts uses ContactMessage response_model with email as EmailStr — any legacy contact rows with unparseable emails would raise 500. Not observed in this run but worth defensive validation.",
+    "server.py L332: duplicate-slug check on POST is fine, but PUT /admin/pages/{id} does not re-check slug uniqueness if slug is renamed to an existing one. Low risk.",
+    "AI endpoints (bio, tashkeel): non-streaming loop consumes streamed response; each call opens a new LlmChat session — fine for stateless one-shot generation. No cost/quota safeguards in place; consider rate-limiting for production."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (expanded from 9 to 24 tests: added admin auth/CRUD/config, AI bio, AI tashkeel, tightened gold-price to >$1000/oz)"
+  ],
+  "success_rate": { "backend": "100% (24/24)", "frontend": "100% of tested flows (scroll-to-top, share bar, PWA button, save-as-image/pdf, AI bio, AI tashkeel, diacritics, qr-reader, prayer-times alerts UI, admin login+all 4 tabs, home sections editor-picks/latest/most-used, custom /p/:slug rendering)" },
+  "test_credentials": "admin / Matar@2026 for /admin (POST /api/admin/login). Documented in /app/memory/test_credentials.md notes and in /app/backend/.env.",
+  "seed_data_creation": "Created + deleted 1 custom page (slug=test-page-e2e-2) via admin API round-trip; overrides for zakat toggled and cleaned up; site_config populated with GA_ID=G-TEST123 and editor_picks=[bmi,zakat] via test — remains in DB from test run (safe, non-destructive).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend suite at /app/backend/tests/backend_test.py now has 24 tests spanning public + admin + AI endpoints. Gold-price bug from iteration 1 is fixed and asserted (>$1000/oz). All new iteration-2 features (scroll-to-top, share bar with 9 buttons, save-as-image/PDF via html2canvas, PWA install-page button, AI bio via Claude, AI tashkeel via Claude, QR reader page, prayer-times alerts UI, home sections editor-picks/latest/most-used, admin panel with 4 tabs + JWT protection, custom /p/:slug rendering) are all working. No regressions detected. If retesting: verify that site_config (ga_id, editor_picks, latest) still round-trips after any future writes; verify tool_overrides.hidden=true actually hides the card on Home (was tested at the API layer here — UI hide-on-Home was not force-toggled in this run but the toggle button click succeeded).",
+  "rca of the issue": "N/A — no failures observed this iteration. Prior iteration's gold-price inversion bug (server.py L108-109) is now correctly using rates directly (1 XAU = N currency, not inverted); pytest asserts usd_per_ounce > 1000 and observes realistic values."
+}

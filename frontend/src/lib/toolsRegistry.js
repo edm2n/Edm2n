@@ -11,7 +11,7 @@ import {
   Trophy, Gamepad2, Shuffle, Target, ClipboardList, Focus, Lightbulb, Info,
   Mail, HelpCircle, ShieldCheck, FileCheck2, Link2, Newspaper, Cake, TrendingUp,
   Landmark, Award, BookOpen, Calculator, Waves, Feather, GaugeCircle, Package,
-  Beaker, Boxes
+  Beaker, Boxes, ScanLine, UserSquare
 } from 'lucide-react';
 
 export const CATEGORIES = {
@@ -87,6 +87,7 @@ export const TOOLS = [
 
   // Dev Tools
   { slug: 'qr-generator', name: 'مولّد QR Code', desc: 'نص، رابط، واي فاي، اتصال', category: 'dev', icon: QrCode },
+  { slug: 'qr-reader', name: 'قارئ QR Code', desc: 'امسح رمز QR بكاميرا الجوّال مباشرة', category: 'dev', icon: ScanLine },
   { slug: 'password', name: 'مولّد كلمات مرور', desc: 'قوية وعشوائية مع خيارات', category: 'dev', icon: KeyRound },
   { slug: 'json-format', name: 'منسّق JSON', desc: 'ترتيب وفحص صيغة JSON', category: 'dev', icon: Braces },
   { slug: 'base64', name: 'محوّل Base64', desc: 'تشفير وفك Base64', category: 'dev', icon: Binary },
@@ -128,9 +129,10 @@ export const TOOLS = [
   { slug: 'word-count', name: 'عدّاد الكلمات', desc: 'كلمات، حروف، أسطر، وقت القراءة', category: 'text', icon: FileText },
   { slug: 'text-case', name: 'تحويل حالة النص', desc: 'كبير/صغير/عكس/إزالة تشكيل', category: 'text', icon: Type },
   { slug: 'kb-flip', name: 'تحويل لوحة المفاتيح', desc: '"hbf khf" → "لا حول"', category: 'text', icon: Repeat },
-  { slug: 'diacritics', name: 'إزالة/إضافة التشكيل', desc: 'إزالة الحركات من النص العربي', category: 'text', icon: Feather },
+  { slug: 'diacritics', name: 'إضافة/إزالة التشكيل', desc: 'إزالة الحركات أو إضافتها بالذكاء الاصطناعي', category: 'text', icon: Feather },
 
   // Misc
+  { slug: 'ai-bio', name: 'مولّد البايو بالذكاء الاصطناعي', desc: 'بايو عربي احترافي في ثوانٍ', category: 'misc', icon: UserSquare },
   { slug: 'ai-sites', name: 'أهم مواقع الذكاء الاصطناعي', desc: 'دليل أفضل أدوات AI', category: 'misc', icon: Bot },
   { slug: 'countdown', name: 'عدّاد تنازلي', desc: 'عدّاد لتاريخ معيّن', category: 'misc', icon: Hourglass },
   { slug: 'pomodoro', name: 'مؤقّت بومودورو', desc: '25 دقيقة تركيز / 5 استراحة', category: 'misc', icon: Focus },

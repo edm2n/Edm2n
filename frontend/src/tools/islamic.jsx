@@ -1,18 +1,25 @@
 // Islamic tools
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { Input, Select, Button, ResultBox } from '../lib/ui';
 import { toArabicDigits } from '../lib/helpers';
 import { toHijri, toGregorian } from 'hijri-converter';
-import { Plus, Minus, RotateCcw, Volume2, Play, Pause } from 'lucide-react';
+import { Plus, Minus, RotateCcw, Volume2, Play, Pause, Bell, BellOff } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Adhan audio (small MP3 stub - user can point to full one)
+const ADHAN_URL = 'https://www.islamcan.com/audio/adhan/azan2.mp3';
 
 export function PrayerTimes() {
   const [city, setCity] = useState('Riyadh');
   const [country, setCountry] = useState('SA');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [alerts, setAlerts] = useState(() => localStorage.getItem('prayer_alerts') === '1');
+  const [customAdhan, setCustomAdhan] = useState(() => localStorage.getItem('prayer_adhan_url') || ADHAN_URL);
+  const [nextPrayer, setNextPrayer] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -24,13 +31,54 @@ export function PrayerTimes() {
 
   useEffect(() => { load(); }, []);
 
+  useEffect(() => { localStorage.setItem('prayer_alerts', alerts ? '1' : '0'); }, [alerts]);
+  useEffect(() => { localStorage.setItem('prayer_adhan_url', customAdhan); }, [customAdhan]);
+
+  // Compute next prayer + trigger alerts
+  useEffect(() => {
+    if (!data?.timings || !alerts) return;
+    const check = () => {
+      const now = new Date();
+      const nowM = now.getHours() * 60 + now.getMinutes();
+      const list = [
+        ['الفجر', data.timings.Fajr], ['الظهر', data.timings.Dhuhr],
+        ['العصر', data.timings.Asr], ['المغرب', data.timings.Maghrib], ['العشاء', data.timings.Isha]
+      ];
+      for (const [name, t] of list) {
+        const [h, m] = t.split(':').map(Number);
+        const pm = h * 60 + m;
+        if (pm === nowM && now.getSeconds() < 5) {
+          try {
+            new Audio(customAdhan).play();
+            if (Notification.permission === 'granted') {
+              new Notification(`حان الآن وقت صلاة ${name}`, { body: `في مدينة ${city}` });
+            }
+          } catch {}
+        }
+        if (pm > nowM) { setNextPrayer({ name, time: t, in: pm - nowM }); return; }
+      }
+      setNextPrayer(null);
+    };
+    check();
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, [data, alerts, customAdhan, city]);
+
+  const toggleAlerts = async () => {
+    if (!alerts) {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        await Notification.requestPermission();
+      }
+    }
+    setAlerts(!alerts);
+    toast.success(!alerts ? 'تم تفعيل التنبيهات' : 'تم إيقاف التنبيهات');
+  };
+
+  const testAdhan = () => { try { new Audio(customAdhan).play(); } catch { toast.error('تعذّر تشغيل الأذان'); } };
+
   const prayers = data?.timings ? {
-    'الفجر': data.timings.Fajr,
-    'الشروق': data.timings.Sunrise,
-    'الظهر': data.timings.Dhuhr,
-    'العصر': data.timings.Asr,
-    'المغرب': data.timings.Maghrib,
-    'العشاء': data.timings.Isha,
+    'الفجر': data.timings.Fajr, 'الشروق': data.timings.Sunrise, 'الظهر': data.timings.Dhuhr,
+    'العصر': data.timings.Asr, 'المغرب': data.timings.Maghrib, 'العشاء': data.timings.Isha,
   } : null;
 
   const cities = ['Riyadh', 'Jeddah', 'Mecca', 'Medina', 'Dammam', 'Khobar', 'Taif', 'Abha', 'Tabuk', 'Buraidah'];
@@ -46,6 +94,36 @@ export function PrayerTimes() {
           <Button testid="pt-load" onClick={load}>تحديث</Button>
         </div>
       </div>
+
+      {/* Alerts controls */}
+      <div className="rounded-2xl border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {alerts ? <Bell className="h-5 w-5 text-[#D4AF37]" /> : <BellOff className="h-5 w-5 text-muted-foreground" />}
+            <span className="font-semibold">تنبيه الصلاة عند دخول الوقت</span>
+          </div>
+          <button data-testid="pt-toggle-alerts" onClick={toggleAlerts} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${alerts ? 'bg-[#D4AF37] text-black' : 'border border-border'}`}>
+            {alerts ? 'مفعّل' : 'إيقاف'}
+          </button>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <input
+            data-testid="pt-adhan-url"
+            value={customAdhan}
+            onChange={(e) => setCustomAdhan(e.target.value)}
+            dir="ltr"
+            placeholder="رابط ملف الأذان (MP3)"
+            className="flex-1 min-w-[200px] rounded-xl border border-input bg-background px-3 py-2 text-sm font-mono"
+          />
+          <Button testid="pt-test-adhan" variant="ghost" onClick={testAdhan}><Volume2 className="h-4 w-4" /> جرّب</Button>
+        </div>
+        {nextPrayer && (
+          <div className="text-sm text-muted-foreground">
+            الصلاة القادمة: <b className="text-[#D4AF37]">{nextPrayer.name}</b> بعد {Math.floor(nextPrayer.in / 60)}س و {nextPrayer.in % 60}د
+          </div>
+        )}
+      </div>
+
       {loading && <p className="text-muted-foreground">جاري التحميل...</p>}
       {prayers && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
