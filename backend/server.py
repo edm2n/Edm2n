@@ -483,12 +483,12 @@ async def smart_fetch(body: SmartFetchBody, _: str = Depends(verify_admin)):
                                       }) as hc:
             r = await hc.get(url)
             if r.status_code >= 400:
-                raise HTTPException(status_code=502, detail=f"الرابط لا يستجيب (HTTP {r.status_code})")
+                raise HTTPException(status_code=422, detail=f"الرابط لا يستجيب (HTTP {r.status_code})")
             html = r.text
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"تعذّر الوصول للرابط: {type(e).__name__}")
+        raise HTTPException(status_code=422, detail=f"تعذّر الوصول للرابط: {type(e).__name__}")
 
     # Extract with trafilatura → Markdown output + metadata
     cfg = use_config()
