@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Input, Select, Button, ResultBox } from '../lib/ui';
 import { toArabicDigits } from '../lib/helpers';
 import { toHijri, toGregorian } from 'hijri-converter';
-import { Plus, Minus, RotateCcw, Volume2, Play, Pause, Bell, BellOff } from 'lucide-react';
+import { Plus, Minus, RotateCcw, Volume2, Play, Pause, Bell, BellOff, VolumeX } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -31,6 +31,8 @@ export function PrayerTimes() {
   const [adhanPreset, setAdhanPreset] = useState(() => localStorage.getItem('prayer_adhan_preset') || 'afasy');
   const [customAdhan, setCustomAdhan] = useState(() => localStorage.getItem('prayer_adhan_url') || DEFAULT_ADHAN);
   const [nextPrayer, setNextPrayer] = useState(null);
+  const [previewId, setPreviewId] = useState(null);
+  const previewAudioRef = React.useRef(null);
 
   const currentAdhanUrl = adhanPreset === 'custom'
     ? customAdhan
@@ -92,6 +94,32 @@ export function PrayerTimes() {
 
   const testAdhan = () => { try { new Audio(currentAdhanUrl).play(); } catch { toast.error('تعذّر تشغيل الأذان'); } };
 
+  const stopPreview = () => {
+    if (previewAudioRef.current) {
+      try { previewAudioRef.current.pause(); previewAudioRef.current.currentTime = 0; } catch {}
+      previewAudioRef.current = null;
+    }
+    setPreviewId(null);
+  };
+
+  const togglePreview = (preset) => {
+    if (!preset.url) { toast.info('اختر رابطاً أولاً في الحقل المخصّص'); return; }
+    if (previewId === preset.id) { stopPreview(); return; }
+    stopPreview();
+    try {
+      const audio = new Audio(preset.url);
+      audio.addEventListener('ended', () => setPreviewId(null));
+      audio.addEventListener('error', () => { toast.error(`تعذّر تشغيل عيّنة ${preset.label}`); setPreviewId(null); });
+      audio.play().catch(() => { toast.error(`تعذّر تشغيل العيّنة`); setPreviewId(null); });
+      previewAudioRef.current = audio;
+      setPreviewId(preset.id);
+      // Auto-stop after 15s to keep it a "preview"
+      setTimeout(() => { if (previewAudioRef.current === audio) stopPreview(); }, 15000);
+    } catch { toast.error('تعذّر تشغيل الصوت'); }
+  };
+
+  useEffect(() => { return () => stopPreview(); }, []);
+
   const prayers = data?.timings ? {
     'الفجر': data.timings.Fajr, 'الشروق': data.timings.Sunrise, 'الظهر': data.timings.Dhuhr,
     'العصر': data.timings.Asr, 'المغرب': data.timings.Maghrib, 'العشاء': data.timings.Isha,
@@ -127,19 +155,43 @@ export function PrayerTimes() {
         <div>
           <label className="block text-sm mb-1.5">اختر صوت المؤذن:</label>
           <div className="flex flex-wrap gap-2">
-            {ADHAN_PRESETS.map((p) => (
-              <button
-                key={p.id}
-                data-testid={`pt-voice-${p.id}`}
-                onClick={() => setAdhanPreset(p.id)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  adhanPreset === p.id ? 'bg-[#D4AF37] text-black' : 'border border-border hover:border-[#D4AF37]'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+            {ADHAN_PRESETS.map((p) => {
+              const isActive = adhanPreset === p.id;
+              const isPlaying = previewId === p.id;
+              return (
+                <div key={p.id} className={`inline-flex items-center gap-1 rounded-full pr-1 pl-1 border transition-colors ${isActive ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'border-border'}`}>
+                  <button
+                    data-testid={`pt-voice-${p.id}`}
+                    onClick={() => setAdhanPreset(p.id)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${isActive ? '' : 'hover:text-[#D4AF37]'}`}
+                  >
+                    {p.label}
+                  </button>
+                  {p.id !== 'custom' && (
+                    <button
+                      data-testid={`pt-preview-${p.id}`}
+                      onClick={(e) => { e.stopPropagation(); togglePreview(p); }}
+                      title={isPlaying ? 'إيقاف العيّنة' : 'تشغيل عيّنة'}
+                      className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                        isPlaying
+                          ? 'bg-red-500 text-white'
+                          : isActive ? 'bg-black/15 hover:bg-black/25' : 'hover:bg-[#D4AF37]/20 text-[#D4AF37]'
+                      }`}
+                    >
+                      {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
+          {previewId && (
+            <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+              <Volume2 className="h-3.5 w-3.5 text-[#D4AF37]" />
+              يشغّل الآن: <b>{ADHAN_PRESETS.find((x) => x.id === previewId)?.label}</b>
+              <button data-testid="pt-preview-stop" onClick={stopPreview} className="text-red-500 hover:underline mr-2">إيقاف</button>
+            </div>
+          )}
         </div>
 
         {adhanPreset === 'custom' && (
