@@ -227,7 +227,9 @@ async def track_tool(slug: str):
 async def admin_stats(_: str = Depends(verify_admin)):
     # Top viewed tools
     top = await db.tool_views.find({}, {"_id": 0}).sort("count", -1).limit(15).to_list(15)
-    total_views = sum(t.get("count", 0) for t in top)
+    # True total across ALL tracked tools (not just top 15)
+    agg = await db.tool_views.aggregate([{"$group": {"_id": None, "s": {"$sum": "$count"}}}]).to_list(1)
+    total_views = agg[0]["s"] if agg else 0
 
     # Contacts breakdowns
     now = datetime.now(timezone.utc)
