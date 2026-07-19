@@ -1,5 +1,5 @@
 // Admin Panel - login + manage pages + tools + config
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Input, Button } from '../lib/ui';
@@ -133,14 +133,93 @@ function PagesTab() {
 
 function PageEditor({ page, onSave, onCancel }) {
   const [p, setP] = useState(page);
+  const [preview, setPreview] = useState(false);
+  const [html, setHtml] = useState('');
+
+  useEffect(() => {
+    if (!preview) return;
+    (async () => {
+      const { marked } = await import('marked');
+      const DOMPurify = (await import('dompurify')).default;
+      marked.setOptions({ gfm: true, breaks: true });
+      setHtml(DOMPurify.sanitize(marked.parse(p.content || '')));
+    })();
+  }, [preview, p.content]);
+
+  const insertSnippet = (before, after = '') => {
+    setP({ ...p, content: (p.content || '') + '\n' + before + 'اكتب هنا' + after });
+  };
+
   return (
     <div className="space-y-4 rounded-2xl border border-border p-6 bg-card">
       <Input testid="pe-slug" label="الرابط (بالإنجليزية، مثال: my-article)" value={p.slug} onChange={(e) => setP({ ...p, slug: e.target.value })} dir="ltr" />
       <Input testid="pe-title" label="العنوان" value={p.title} onChange={(e) => setP({ ...p, title: e.target.value })} />
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-medium">المحتوى (يدعم Markdown البسيط)</span>
-        <textarea data-testid="pe-content" value={p.content} onChange={(e) => setP({ ...p, content: e.target.value })} rows={12} className="w-full rounded-xl border border-input bg-background px-4 py-3 leading-loose" />
-      </label>
+
+      {/* Markdown toolbar shortcuts */}
+      <div className="flex flex-wrap gap-2 text-xs">
+        {[
+          ['# عنوان كبير', '# '],
+          ['## عنوان', '## '],
+          ['**غامق**', '**', '**'],
+          ['*مائل*', '*', '*'],
+          ['- قائمة', '- '],
+          ['1. مرقّمة', '1. '],
+          ['[رابط](url)', '[', '](https://example.com)'],
+          ['> اقتباس', '> '],
+          ['`كود`', '`', '`'],
+          ['خط فاصل', '\n---\n'],
+        ].map(([label, b, a]) => (
+          <button key={label} type="button" onClick={() => insertSnippet(b, a || '')} data-testid={`pe-md-${label}`} className="rounded-lg border border-border px-2 py-1 hover:border-[#D4AF37]">
+            {label}
+          </button>
+        ))}
+        <button type="button" onClick={() => setPreview(!preview)} data-testid="pe-preview" className={`rounded-lg px-3 py-1 font-semibold ${preview ? 'bg-[#D4AF37] text-black' : 'border border-border'}`}>
+          {preview ? 'تحرير' : 'معاينة'}
+        </button>
+      </div>
+
+      {!preview ? (
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium">المحتوى (Markdown مدعوم — استخدم الأزرار أعلاه)</span>
+          <textarea data-testid="pe-content" value={p.content} onChange={(e) => setP({ ...p, content: e.target.value })} rows={16} className="w-full rounded-xl border border-input bg-background px-4 py-3 leading-loose font-mono text-sm" />
+        </label>
+      ) : (
+        <div className="rounded-xl border border-border bg-muted/30 p-5">
+          <div className="text-xs text-muted-foreground mb-2">معاينة</div>
+          <div className="markdown-content leading-loose" dangerouslySetInnerHTML={{ __html: html }} />
+        </div>
+      )}
+
+      <details className="text-sm rounded-xl border border-border p-3">
+        <summary className="cursor-pointer font-semibold">دليل Markdown السريع</summary>
+        <pre className="mt-3 text-xs whitespace-pre-wrap font-mono text-muted-foreground leading-relaxed" dir="ltr">
+{`# عنوان رئيسي
+## عنوان فرعي
+### عنوان أصغر
+
+**نص غامق**    *نص مائل*    ~~محذوف~~
+
+- قائمة نقطية
+- عنصر آخر
+
+1. قائمة مرقّمة
+2. عنصر ثانٍ
+
+[نص الرابط](https://example.com)
+
+> اقتباس مميّز
+
+\`كود قصير\`
+
+---  (خط فاصل)
+
+| عمود ١ | عمود ٢ |
+|--------|--------|
+| قيمة | قيمة |
+`}
+        </pre>
+      </details>
+
       <label className="inline-flex items-center gap-2">
         <input type="checkbox" checked={p.published} onChange={(e) => setP({ ...p, published: e.target.checked })} data-testid="pe-published" />
         منشورة
