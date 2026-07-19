@@ -1,0 +1,19 @@
+{
+  "short_name": "دليل مطر",
+  "name": "دليل مطر الإلكتروني",
+  "description": "أدوات وحاسبات عربية شاملة",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#047857",
+  "background_color": "#02120C",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

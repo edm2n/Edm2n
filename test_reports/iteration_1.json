@@ -1,0 +1,56 @@
+{
+  "summary": "Tested Dalil Matar (دليل مطر) Arabic RTL toolkit. Backend: 9/9 pytest passing. Frontend: home shows 83 tools, category filter (16 finance), theme toggle w/ localStorage persistence works, both search entry points open modal & filter, contact modal submits to backend and persists in MongoDB, all 5 static pages load. Sampled 12 tools: loan-by-salary (498k for 15k salary), zakat (2500 for 100k = 2.5%), BMI (24.22 وزن طبيعي), currency, prayer times, QR canvas, password gen, tasbih counter, age, hijri (١٤٤٨), whatsapp wa.me link — all functional. CRITICAL bug: /api/gold-price returns near-zero values (formula inversion).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/gold-price",
+        "issue": "usd_per_ounce and sar_per_ounce are ~0.00024 / 0.00006 (should be ~$4010/oz and ~15000 SAR/oz). Root cause: server.py lines 108-109 compute `usd_per_oz = 1 / rates.get('usd')` but the fawazahmed0 XAU API already returns rates as 'X currency per 1 XAU (troy ounce)' — so 1/x inverts and produces bogus tiny numbers. Fix: use `usd_per_oz = rates.get('usd')` and `sar_per_oz = rates.get('sar')` directly (no inversion). This propagates to karat prices and the Gold Price tool UI which displays 0.00.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "GoldPrice tool page (/tool/gold-price)",
+        "issue": "Displays 0.00 for ounce and all karats due to backend gold-price bug above. Front-end code is correct — will auto-recover once backend fix lands.",
+        "selector": "[data-testid='gold-oz-usd'], [data-testid='gold-oz-sar']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "SearchModal (Radix Dialog)",
+        "issues": [
+          "Console a11y warnings: `DialogContent requires a DialogTitle` and `Missing Description or aria-describedby` for the search modal. Not blocking users but pollutes console and hurts screen-reader UX. Wrap a hidden DialogTitle or add sr-only title."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix /api/gold-price formula in /app/backend/server.py: remove the `1 / rates.get(...)` inversion; use rates directly (usd_per_oz = rates['usd'], sar_per_oz = rates['sar']). Verify UI shows realistic prices (~$4000/oz, ~15000 SAR/oz, 24k ~485 SAR/g).",
+    "Add a11y-compliant DialogTitle (VisuallyHidden) to SearchModal to remove console warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py L108-109: incorrect inversion of XAU→currency rate causes gold-price to be off by factor ~1/16M. This is the top defect.",
+    "server.py: contact GET endpoint at /api/contact exposes all contacts publicly (no auth). Not a bug per PRD but flag as security consideration if this is ever a public API.",
+    "Modals.jsx SearchModal: DialogContent lacks a <DialogTitle> — Radix a11y warning. Add <VisuallyHidden><DialogTitle>بحث</DialogTitle></VisuallyHidden>.",
+    "ToolPage MAP object duplicates the registry; consider moving component references into TOOLS registry to keep single source of truth."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (created)"
+  ],
+  "success_rate": {"backend": "89% (8/9 endpoints truly correct — gold-price responds 200 but returns wrong numbers)", "frontend": "92% (11/12 sampled tools + all core flows working; gold-price UI displays 0 due to backend)"},
+  "test_credentials": "N/A — app has no auth",
+  "seed_data_creation": "Created 1 test contact via UI submission and 1 via pytest with TEST_ prefix; persisted to MongoDB `contacts` collection.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py — 9 tests, currently all passing (gold-price test only checks >0 which passes even for wrong values; consider tightening after fix by asserting usd_per_ounce > 1000). Frontend has 83 tools registered in /app/frontend/src/lib/toolsRegistry.js — this run sampled 12 representative tools plus all listed backend endpoints and static pages. Not yet sampled: inheritance, calories, GPA, weighted-avg, JSON format, base64, UUID, wheel, dice, RPS, budget, adhkar, qibla — main agent can spot-check these after gold-price fix.",
+  "rca of the issue": "Bug: /api/gold-price returns extremely small values. Reproduction: `curl https://utility-zone-3.preview.emergentagent.com/api/gold-price` returns usd_per_ounce ≈ 0.000249, sar_per_ounce ≈ 0.0000665. Cause: fawazahmed0's XAU endpoint returns `{xau: {usd: 4010.6, sar: 15040.2, ...}}` meaning 1 troy ounce of gold = 4010 USD. The server code (server.py lines 108-109) applies `1 / rates.get('usd')` which inverts this to 0.000249 (ounces per dollar) instead of dollars per ounce. Mitigation: replace `usd_per_oz = 1 / rates.get('usd', 0) if rates.get('usd') else None` with `usd_per_oz = rates.get('usd')` and same for sar. Then karat calculations already using `sar_per_oz / gram * (k/24)` will produce realistic ~485/435/415/355 SAR per gram for 24/22/21/18k."
+}
