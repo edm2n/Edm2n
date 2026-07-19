@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Button, Input } from './lib/ui';
 import { Send, X } from 'lucide-react';
 import axios from 'axios';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -100,6 +101,9 @@ export function SearchModal({ open, onOpenChange, onSelect, tools }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent dir="rtl" className="max-w-2xl rounded-3xl border-border bg-card p-0 overflow-hidden">
+        <VisuallyHidden>
+          <DialogTitle>البحث عن أداة</DialogTitle>
+        </VisuallyHidden>
         <div className="p-4 border-b border-border">
           <input
             data-testid="search-input"

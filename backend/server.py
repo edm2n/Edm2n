@@ -104,9 +104,9 @@ async def gold_price():
                 if r.status_code == 200:
                     data = r.json()
                     rates = data.get("xau", {})
-                    # xau: 1 ounce troy = X USD equivalent -> we want USD/oz and SAR/g
-                    usd_per_oz = 1 / rates.get("usd", 0) if rates.get("usd") else None
-                    sar_per_oz = 1 / rates.get("sar", 0) if rates.get("sar") else None
+                    # Base is XAU (troy ounce). rates.usd = USD per 1 troy ounce.
+                    usd_per_oz = rates.get("usd")
+                    sar_per_oz = rates.get("sar")
                     gram = 31.1035
                     return {
                         "date": data.get("date"),
