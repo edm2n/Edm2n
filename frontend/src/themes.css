@@ -1,0 +1,113 @@
+/* ================================================================
+   Multi-theme system for دليل مطر
+   Three themes users can pick from:
+   1. Default (emerald + gold + Alexandria font) - defined in index.css
+   2. "ocean" - deep navy + sky-blue + Cairo font
+   3. "desert" - warm cream + terracotta + Tajawal font
+   Theme is applied via `data-theme` attribute on <html>.
+   Overrides use attribute selectors that match the Tailwind
+   arbitrary-value classes (which contain #D4AF37 literally).
+================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@300;400;500;700;800&display=swap');
+
+/* ---------- Theme 2: OCEAN (deep navy + sky-blue) ---------- */
+html[data-theme="ocean"] {
+    --background: 210 60% 6%;
+    --foreground: 200 20% 96%;
+    --card: 210 50% 10%;
+    --card-foreground: 200 20% 96%;
+    --popover: 210 50% 10%;
+    --popover-foreground: 200 20% 96%;
+    --primary: 200 90% 55%;
+    --primary-foreground: 210 60% 6%;
+    --secondary: 200 80% 40%;
+    --secondary-foreground: 200 20% 96%;
+    --muted: 210 40% 14%;
+    --muted-foreground: 200 15% 70%;
+    --accent: 200 80% 60%;
+    --accent-foreground: 210 60% 6%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 200 20% 96%;
+    --border: 210 40% 20%;
+    --input: 210 40% 16%;
+    --ring: 200 80% 55%;
+}
+html[data-theme="ocean"] body {
+    font-family: 'Cairo', system-ui, sans-serif;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+}
+/* Override the "gold" #D4AF37/#CA8A04 to sky blue palette in OCEAN theme */
+html[data-theme="ocean"] .text-\[\#D4AF37\],
+html[data-theme="ocean"] .hover\:text-\[\#D4AF37\]:hover { color: #38BDF8 !important; }
+html[data-theme="ocean"] .bg-\[\#D4AF37\] { background-color: #38BDF8 !important; }
+html[data-theme="ocean"] .hover\:bg-\[\#CA8A04\]:hover { background-color: #0EA5E9 !important; }
+html[data-theme="ocean"] .border-\[\#D4AF37\],
+html[data-theme="ocean"] .hover\:border-\[\#D4AF37\]:hover { border-color: #38BDF8 !important; }
+html[data-theme="ocean"] [class*="D4AF37]/10"] { background-color: rgba(56, 189, 248, 0.10) !important; }
+html[data-theme="ocean"] [class*="D4AF37]/20"] { background-color: rgba(56, 189, 248, 0.20) !important; }
+html[data-theme="ocean"] [class*="D4AF37]/30"] { background-color: rgba(56, 189, 248, 0.30) !important; }
+html[data-theme="ocean"] [class*="D4AF37]/40"] { border-color: rgba(56, 189, 248, 0.40) !important; }
+html[data-theme="ocean"] [class*="D4AF37]/5"]  { background-image: linear-gradient(to left, rgba(56, 189, 248, 0.05), transparent) !important; }
+html[data-theme="ocean"] .text-gold { color: #38BDF8 !important; }
+html[data-theme="ocean"] :focus-visible { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.45) !important; }
+html[data-theme="ocean"] ::selection { background: #38BDF8; color: #0C2340; }
+/* Header logo gradient */
+html[data-theme="ocean"] .from-emerald-700 { --tw-gradient-from: #0C2340 var(--tw-gradient-from-position) !important; }
+html[data-theme="ocean"] .to-emerald-900   { --tw-gradient-to:   #051428 var(--tw-gradient-to-position)   !important; }
+
+
+/* ---------- Theme 3: DESERT (warm cream + terracotta) ---------- */
+html[data-theme="desert"] {
+    --background: 35 55% 96%;
+    --foreground: 25 40% 15%;
+    --card: 40 65% 99%;
+    --card-foreground: 25 40% 15%;
+    --popover: 40 65% 99%;
+    --popover-foreground: 25 40% 15%;
+    --primary: 20 65% 42%;
+    --primary-foreground: 40 65% 99%;
+    --secondary: 30 70% 55%;
+    --secondary-foreground: 25 40% 15%;
+    --muted: 35 40% 90%;
+    --muted-foreground: 25 20% 40%;
+    --accent: 20 70% 48%;
+    --accent-foreground: 40 65% 99%;
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 40 65% 99%;
+    --border: 30 30% 82%;
+    --input: 30 30% 88%;
+    --ring: 20 70% 48%;
+}
+html[data-theme="desert"] body {
+    font-family: 'Tajawal', system-ui, sans-serif;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+}
+/* Override the "gold" to terracotta palette in DESERT theme */
+html[data-theme="desert"] .text-\[\#D4AF37\],
+html[data-theme="desert"] .hover\:text-\[\#D4AF37\]:hover { color: #B85C38 !important; }
+html[data-theme="desert"] .bg-\[\#D4AF37\] { background-color: #B85C38 !important; }
+html[data-theme="desert"] .hover\:bg-\[\#CA8A04\]:hover { background-color: #8B4A2D !important; }
+html[data-theme="desert"] .border-\[\#D4AF37\],
+html[data-theme="desert"] .hover\:border-\[\#D4AF37\]:hover { border-color: #B85C38 !important; }
+html[data-theme="desert"] [class*="D4AF37]/10"] { background-color: rgba(184, 92, 56, 0.10) !important; }
+html[data-theme="desert"] [class*="D4AF37]/20"] { background-color: rgba(184, 92, 56, 0.20) !important; }
+html[data-theme="desert"] [class*="D4AF37]/30"] { background-color: rgba(184, 92, 56, 0.30) !important; }
+html[data-theme="desert"] [class*="D4AF37]/40"] { border-color: rgba(184, 92, 56, 0.40) !important; }
+html[data-theme="desert"] [class*="D4AF37]/5"]  { background-image: linear-gradient(to left, rgba(184, 92, 56, 0.05), transparent) !important; }
+html[data-theme="desert"] .text-gold { color: #B85C38 !important; }
+html[data-theme="desert"] :focus-visible { box-shadow: 0 0 0 3px rgba(184, 92, 56, 0.45) !important; }
+html[data-theme="desert"] ::selection { background: #B85C38; color: #FDF6EC; }
+/* Header logo gradient */
+html[data-theme="desert"] .from-emerald-700 { --tw-gradient-from: #B85C38 var(--tw-gradient-from-position) !important; }
+html[data-theme="desert"] .to-emerald-900   { --tw-gradient-to:   #8B4A2D var(--tw-gradient-to-position)   !important; }
+/* Force light appearance in desert (disable dark mode overrides) */
+html[data-theme="desert"] { color-scheme: light; }
+html[data-theme="desert"].dark {
+    --background: 35 55% 96%;
+    --foreground: 25 40% 15%;
+    --card: 40 65% 99%;
+    --card-foreground: 25 40% 15%;
+}

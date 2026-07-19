@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Sun, Menu, Search, X, Download } from 'lucide-react';
+import { Moon, Sun, Menu, Search, X, Download, Palette, Check } from 'lucide-react';
 import { Button } from './lib/ui';
 
 function useTheme() {
@@ -17,8 +17,26 @@ function useTheme() {
   return [theme, setTheme];
 }
 
+function useDesignTheme() {
+  const [design, setDesign] = useState(() => localStorage.getItem('design_theme') || 'emerald');
+  useEffect(() => {
+    if (design === 'emerald') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', design);
+    localStorage.setItem('design_theme', design);
+  }, [design]);
+  return [design, setDesign];
+}
+
+const DESIGN_THEMES = [
+  { id: 'emerald', name: 'زمردي وذهبي', color: '#D4AF37', bg: 'linear-gradient(135deg, #047857, #D4AF37)' },
+  { id: 'ocean',   name: 'أزرق ملكي',   color: '#38BDF8', bg: 'linear-gradient(135deg, #0C2340, #38BDF8)' },
+  { id: 'desert',  name: 'صحراء دافئة', color: '#B85C38', bg: 'linear-gradient(135deg, #FDF6EC, #B85C38)' },
+];
+
 export function Header({ onOpenContact, onOpenSearch }) {
   const [theme, setTheme] = useTheme();
+  const [design, setDesign] = useDesignTheme();
+  const [designOpen, setDesignOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
 
   useEffect(() => {
@@ -77,6 +95,43 @@ export function Header({ onOpenContact, onOpenSearch }) {
           >
             {theme === 'dark' ? <Sun className="h-4 w-4 text-[#D4AF37]" /> : <Moon className="h-4 w-4" />}
           </button>
+
+          {/* Design theme picker */}
+          <div className="relative">
+            <button
+              data-testid="design-picker"
+              onClick={() => setDesignOpen(!designOpen)}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-background hover:border-[#D4AF37] transition-colors"
+              aria-label="تغيير التصميم"
+              title="اختر تصميماً"
+            >
+              <Palette className="h-4 w-4 text-[#D4AF37]" />
+            </button>
+            {designOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setDesignOpen(false)} />
+                <div data-testid="design-menu" className="absolute end-0 top-12 z-50 w-64 rounded-2xl border border-border bg-card p-3 shadow-2xl">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 px-1">اختر التصميم</div>
+                  <div className="space-y-1.5">
+                    {DESIGN_THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        data-testid={`design-${t.id}`}
+                        onClick={() => { setDesign(t.id); setDesignOpen(false); }}
+                        className={`w-full flex items-center gap-3 rounded-xl border p-2 pr-3 transition-colors ${
+                          design === t.id ? 'border-[#D4AF37] bg-muted' : 'border-border hover:border-[#D4AF37]'
+                        }`}
+                      >
+                        <div className="h-8 w-8 rounded-lg shrink-0" style={{ background: t.bg }} />
+                        <span className="flex-1 text-right text-sm font-semibold">{t.name}</span>
+                        {design === t.id && <Check className="h-4 w-4 text-[#D4AF37]" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>
