@@ -142,7 +142,7 @@ export function ToolShell({ tool, children }) {
       </div>
 
       {/* Universal Share & Save Bar */}
-      <ShareBar text={shareText} url={shareUrl} onSaveImage={saveAsImage} onSavePdf={saveAsPDF} />
+      <ShareBar text={shareText} url={shareUrl} onSaveImage={saveAsImage} onSavePdf={saveAsPDF} onAddToHome={installPwa} />
     </div>
   );
 }
@@ -158,7 +158,7 @@ export function ResultBox({ label, value, sub, testid = 'result' }) {
   );
 }
 
-export function ShareBar({ text = '', url = '', onSaveImage, onSavePdf, testidPrefix = 'share' }) {
+export function ShareBar({ text = '', url = '', onSaveImage, onSavePdf, onAddToHome, testidPrefix = 'share' }) {
   const shareUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
   const fullText = `${text}\n${shareUrl}`;
 
@@ -217,6 +217,15 @@ export function ShareBar({ text = '', url = '', onSaveImage, onSavePdf, testidPr
         {onSavePdf && (
           <button data-testid={`${testidPrefix}-pdf`} onClick={onSavePdf} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm hover:border-[#D4AF37] transition-colors">
             <FileDown className="h-4 w-4" /> <span className="hidden sm:inline">PDF</span>
+          </button>
+        )}
+        {onAddToHome && (
+          <button
+            data-testid={`${testidPrefix}-add-home`}
+            onClick={onAddToHome}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/60 bg-[#D4AF37]/10 px-3 py-2 text-sm text-[#CA8A04] hover:bg-[#D4AF37]/20 transition-colors"
+          >
+            <HomeIcon className="h-4 w-4" /> <span>أضف للشاشة</span>
           </button>
         )}
         <button data-testid={`${testidPrefix}-native`} onClick={doShare} className="inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:bg-[#CA8A04] transition-colors">
