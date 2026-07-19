@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Input, Button } from '../lib/ui';
-import { TOOLS } from '../lib/toolsRegistry';
-import { LogOut, Trash2, Eye, EyeOff, Plus, Save } from 'lucide-react';
+import { TOOLS, TOOL_MAP } from '../lib/toolsRegistry';
+import { LogOut, Trash2, Eye, EyeOff, Plus, Save, BarChart3, Users, FileText, Wrench } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TOKEN_KEY = 'admin_token';
@@ -17,7 +17,7 @@ function useAdminApi() {
 
 export default function Admin() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
-  const [tab, setTab] = useState('pages');
+  const [tab, setTab] = useState('stats');
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
@@ -39,6 +39,7 @@ export default function Admin() {
       </div>
       <div className="flex gap-2 flex-wrap mb-6">
         {[
+          ['stats', 'الإحصائيات'],
           ['pages', 'الصفحات المخصصة'],
           ['tools', 'إدارة الأدوات'],
           ['config', 'الإعدادات'],
@@ -50,6 +51,7 @@ export default function Admin() {
         ))}
       </div>
 
+      {tab === 'stats' && <StatsTab />}
       {tab === 'pages' && <PagesTab />}
       {tab === 'tools' && <ToolsTab />}
       {tab === 'config' && <ConfigTab />}
@@ -331,6 +333,102 @@ function MessagesTab() {
           <p className="mt-2 whitespace-pre-line text-sm">{m.message}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, icon: Icon, testid }) {
+  return (
+    <div data-testid={testid} className="rounded-2xl border border-border p-5 bg-card">
+      <div className="flex items-center gap-3 mb-2">
+        {Icon && <Icon className="h-5 w-5 text-[#D4AF37]" />}
+        <span className="text-sm text-muted-foreground">{label}</span>
+      </div>
+      <div className="text-3xl font-black text-foreground">{value}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function StatsTab() {
+  const cfg = useAdminApi();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    axios.get(`${API}/admin/stats`, cfg).then((r) => setStats(r.data)).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <p className="text-muted-foreground text-center py-8">جاري تحميل الإحصائيات...</p>;
+  if (!stats) return <p className="text-destructive">تعذّر تحميل الإحصائيات</p>;
+
+  const maxDaily = Math.max(1, ...(stats.contacts_daily || []).map((d) => d.count));
+
+  return (
+    <div className="space-y-6" data-testid="stats-container">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard testid="stat-views" label="مجموع مشاهدات الأدوات" value={stats.total_views.toLocaleString('ar-SA')} sub={`${stats.total_tools_tracked} أداة مُتَتبَّعة`} icon={BarChart3} />
+        <StatCard testid="stat-contacts-total" label="إجمالي الرسائل" value={stats.contacts.total} icon={Users} />
+        <StatCard testid="stat-contacts-week" label="رسائل آخر ٧ أيام" value={stats.contacts.last_7d} sub={`${stats.contacts.last_30d} خلال آخر ٣٠ يوم`} icon={Users} />
+        <StatCard testid="stat-pages" label="الصفحات المخصصة" value={stats.total_pages} icon={FileText} />
+      </div>
+
+      {/* Contacts daily bar chart */}
+      <div className="rounded-2xl border border-border p-5 bg-card">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="h-5 w-5 text-[#D4AF37]" />
+          <h3 className="font-semibold">رسائل التواصل — آخر ١٤ يوماً</h3>
+        </div>
+        {stats.contacts_daily.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">لا توجد رسائل بعد</p>
+        ) : (
+          <div className="flex items-end gap-2 h-40" data-testid="stats-daily-chart">
+            {stats.contacts_daily.map((d) => (
+              <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ${d.count}`}>
+                <div className="text-xs text-[#D4AF37] font-semibold">{d.count}</div>
+                <div className="w-full bg-[#D4AF37] rounded-t-lg" style={{ height: `${(d.count / maxDaily) * 100}%`, minHeight: 2 }} />
+                <div className="text-[10px] text-muted-foreground" dir="ltr">{d.date.slice(5)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Top tools */}
+      <div className="rounded-2xl border border-border p-5 bg-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Wrench className="h-5 w-5 text-[#D4AF37]" />
+          <h3 className="font-semibold">الأدوات الأكثر زيارة</h3>
+        </div>
+        {stats.top_tools.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">لا توجد بيانات زيارات بعد</p>
+        ) : (
+          <ol className="space-y-2" data-testid="stats-top-tools">
+            {stats.top_tools.map((t, i) => {
+              const tool = TOOL_MAP[t.slug];
+              const name = tool?.name || t.slug;
+              const maxCount = stats.top_tools[0].count;
+              const pct = (t.count / maxCount) * 100;
+              return (
+                <li key={t.slug} data-testid={`stats-top-${t.slug}`} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${i < 3 ? 'bg-[#D4AF37] text-black' : 'bg-muted text-muted-foreground'}`}>{i + 1}</span>
+                      <span className="font-semibold truncate">{name}</span>
+                    </div>
+                    <span className="text-sm font-bold text-[#D4AF37] tabular-nums">{t.count.toLocaleString('ar-SA')}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-[#D4AF37]" style={{ width: `${pct}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }

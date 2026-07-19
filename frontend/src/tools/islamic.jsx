@@ -9,8 +9,18 @@ import { Plus, Minus, RotateCcw, Volume2, Play, Pause, Bell, BellOff } from 'luc
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Adhan audio (small MP3 stub - user can point to full one)
-const ADHAN_URL = 'https://www.islamcan.com/audio/adhan/azan2.mp3';
+// Preset adhan/takbir voices - curated free public MP3s
+const ADHAN_PRESETS = [
+  { id: 'afasy',    label: 'مشاري العفاسي',     url: 'https://www.islamcan.com/audio/adhan/azan2.mp3' },
+  { id: 'minshawi', label: 'المنشاوي',          url: 'https://www.islamcan.com/audio/adhan/azan10.mp3' },
+  { id: 'sudais',   label: 'عبدالرحمن السديس',   url: 'https://www.islamcan.com/audio/adhan/azan13.mp3' },
+  { id: 'basit',    label: 'عبدالباسط',         url: 'https://www.islamcan.com/audio/adhan/azan4.mp3' },
+  { id: 'mekkah',   label: 'أذان مكة المكرمة',   url: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
+  { id: 'madina',   label: 'أذان المدينة',       url: 'https://www.islamcan.com/audio/adhan/azan8.mp3' },
+  { id: 'takbir',   label: 'التكبير (العيد)',    url: 'https://www.islamcan.com/audio/takbeer/takbeer1.mp3' },
+  { id: 'custom',   label: 'رابط مخصّص...',      url: '' },
+];
+const DEFAULT_ADHAN = ADHAN_PRESETS[0].url;
 
 export function PrayerTimes() {
   const [city, setCity] = useState('Riyadh');
@@ -18,8 +28,13 @@ export function PrayerTimes() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [alerts, setAlerts] = useState(() => localStorage.getItem('prayer_alerts') === '1');
-  const [customAdhan, setCustomAdhan] = useState(() => localStorage.getItem('prayer_adhan_url') || ADHAN_URL);
+  const [adhanPreset, setAdhanPreset] = useState(() => localStorage.getItem('prayer_adhan_preset') || 'afasy');
+  const [customAdhan, setCustomAdhan] = useState(() => localStorage.getItem('prayer_adhan_url') || DEFAULT_ADHAN);
   const [nextPrayer, setNextPrayer] = useState(null);
+
+  const currentAdhanUrl = adhanPreset === 'custom'
+    ? customAdhan
+    : (ADHAN_PRESETS.find((p) => p.id === adhanPreset)?.url || DEFAULT_ADHAN);
 
   const load = () => {
     setLoading(true);
@@ -32,6 +47,7 @@ export function PrayerTimes() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => { localStorage.setItem('prayer_alerts', alerts ? '1' : '0'); }, [alerts]);
+  useEffect(() => { localStorage.setItem('prayer_adhan_preset', adhanPreset); }, [adhanPreset]);
   useEffect(() => { localStorage.setItem('prayer_adhan_url', customAdhan); }, [customAdhan]);
 
   // Compute next prayer + trigger alerts
@@ -49,7 +65,7 @@ export function PrayerTimes() {
         const pm = h * 60 + m;
         if (pm === nowM && now.getSeconds() < 5) {
           try {
-            new Audio(customAdhan).play();
+            new Audio(currentAdhanUrl).play();
             if (Notification.permission === 'granted') {
               new Notification(`حان الآن وقت صلاة ${name}`, { body: `في مدينة ${city}` });
             }
@@ -62,7 +78,7 @@ export function PrayerTimes() {
     check();
     const id = setInterval(check, 60000);
     return () => clearInterval(id);
-  }, [data, alerts, customAdhan, city]);
+  }, [data, alerts, currentAdhanUrl, city]);
 
   const toggleAlerts = async () => {
     if (!alerts) {
@@ -74,7 +90,7 @@ export function PrayerTimes() {
     toast.success(!alerts ? 'تم تفعيل التنبيهات' : 'تم إيقاف التنبيهات');
   };
 
-  const testAdhan = () => { try { new Audio(customAdhan).play(); } catch { toast.error('تعذّر تشغيل الأذان'); } };
+  const testAdhan = () => { try { new Audio(currentAdhanUrl).play(); } catch { toast.error('تعذّر تشغيل الأذان'); } };
 
   const prayers = data?.timings ? {
     'الفجر': data.timings.Fajr, 'الشروق': data.timings.Sunrise, 'الظهر': data.timings.Dhuhr,
@@ -106,17 +122,41 @@ export function PrayerTimes() {
             {alerts ? 'مفعّل' : 'إيقاف'}
           </button>
         </div>
-        <div className="flex gap-2 flex-wrap">
+
+        {/* Voice selector */}
+        <div>
+          <label className="block text-sm mb-1.5">اختر صوت المؤذن:</label>
+          <div className="flex flex-wrap gap-2">
+            {ADHAN_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                data-testid={`pt-voice-${p.id}`}
+                onClick={() => setAdhanPreset(p.id)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  adhanPreset === p.id ? 'bg-[#D4AF37] text-black' : 'border border-border hover:border-[#D4AF37]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {adhanPreset === 'custom' && (
           <input
             data-testid="pt-adhan-url"
             value={customAdhan}
             onChange={(e) => setCustomAdhan(e.target.value)}
             dir="ltr"
-            placeholder="رابط ملف الأذان (MP3)"
-            className="flex-1 min-w-[200px] rounded-xl border border-input bg-background px-3 py-2 text-sm font-mono"
+            placeholder="ألصق رابط ملف الأذان (MP3)"
+            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-mono"
           />
-          <Button testid="pt-test-adhan" variant="ghost" onClick={testAdhan}><Volume2 className="h-4 w-4" /> جرّب</Button>
+        )}
+
+        <div className="flex gap-2 flex-wrap">
+          <Button testid="pt-test-adhan" variant="ghost" onClick={testAdhan}><Volume2 className="h-4 w-4" /> جرّب الصوت</Button>
         </div>
+
         {nextPrayer && (
           <div className="text-sm text-muted-foreground">
             الصلاة القادمة: <b className="text-[#D4AF37]">{nextPrayer.name}</b> بعد {Math.floor(nextPrayer.in / 60)}س و {nextPrayer.in % 60}د

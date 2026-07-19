@@ -246,6 +246,46 @@ class TestAdminConfig:
         assert isinstance(r2.json(), list)
 
 
+# ---------- Tracking + Admin Stats (iteration 3) ----------
+class TestTrackingAndStats:
+    def test_track_tool_is_public_no_auth(self, client):
+        # Public POST — should not require auth. Use a TEST slug so we can verify increment.
+        slug = f"test-slug-{uuid.uuid4().hex[:8]}"
+        r = client.post(f"{API}/track/tool/{slug}", timeout=15)
+        assert r.status_code == 200, r.text
+        assert r.json().get("ok") is True
+
+    def test_track_increments_and_stats_reflects(self, client, admin_client):
+        slug = f"test-track-{uuid.uuid4().hex[:8]}"
+        # Hit the tracker 3 times
+        for _ in range(3):
+            r = client.post(f"{API}/track/tool/{slug}", timeout=15)
+            assert r.status_code == 200
+        # Verify via admin stats
+        rs = admin_client.get(f"{API}/admin/stats", timeout=15)
+        assert rs.status_code == 200, rs.text
+        data = rs.json()
+        # Structure assertions
+        assert "top_tools" in data and isinstance(data["top_tools"], list)
+        assert "total_views" in data and isinstance(data["total_views"], int)
+        assert "total_tools_tracked" in data and isinstance(data["total_tools_tracked"], int)
+        assert "contacts" in data and isinstance(data["contacts"], dict)
+        for k in ("total", "last_7d", "last_30d"):
+            assert k in data["contacts"]
+        assert "contacts_daily" in data and isinstance(data["contacts_daily"], list)
+        assert "total_pages" in data and isinstance(data["total_pages"], int)
+        # top_tools might not include our slug if there are >15 hotter tools, but total_tools_tracked must be >=1
+        assert data["total_tools_tracked"] >= 1
+        # If our slug is in top_tools (small dataset), its count must be >=3
+        for t in data["top_tools"]:
+            if t["slug"] == slug:
+                assert t["count"] >= 3
+
+    def test_admin_stats_requires_token(self, client):
+        r = client.get(f"{API}/admin/stats", timeout=15)
+        assert r.status_code == 401
+
+
 # ---------- AI endpoints (may be slow; allow generous timeout) ----------
 class TestAI:
     def test_ai_bio(self, client):

@@ -59,7 +59,13 @@ export function ToolShell({ tool, children }) {
   const shellRef = useRef(null);
   const [installPrompt, setInstallPrompt] = useState(null);
 
-  useEffect(() => { trackToolUsage(tool.slug); }, [tool.slug]);
+  useEffect(() => {
+    trackToolUsage(tool.slug);
+    // Fire-and-forget server-side tracking
+    try {
+      fetch(`${process.env.REACT_APP_BACKEND_URL}/api/track/tool/${tool.slug}`, { method: 'POST' }).catch(() => {});
+    } catch {}
+  }, [tool.slug]);
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };

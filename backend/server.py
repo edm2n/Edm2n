@@ -212,6 +212,59 @@ async def get_tool_overrides():
     return docs
 
 
+# ==================== TRACKING ====================
+@api_router.post("/track/tool/{slug}")
+async def track_tool(slug: str):
+    await db.tool_views.update_one(
+        {"slug": slug},
+        {"$inc": {"count": 1}, "$set": {"last_view": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api_router.get("/admin/stats")
+async def admin_stats(_: str = Depends(verify_admin)):
+    # Top viewed tools
+    top = await db.tool_views.find({}, {"_id": 0}).sort("count", -1).limit(15).to_list(15)
+    total_views = sum(t.get("count", 0) for t in top)
+
+    # Contacts breakdowns
+    now = datetime.now(timezone.utc)
+    week_ago = (now - timedelta(days=7)).isoformat()
+    month_ago = (now - timedelta(days=30)).isoformat()
+    total_contacts = await db.contacts.count_documents({})
+    week_contacts = await db.contacts.count_documents({"created_at": {"$gte": week_ago}})
+    month_contacts = await db.contacts.count_documents({"created_at": {"$gte": month_ago}})
+
+    # Contacts per day for last 14 days
+    docs = await db.contacts.find({"created_at": {"$gte": (now - timedelta(days=14)).isoformat()}}, {"_id": 0, "created_at": 1}).to_list(2000)
+    per_day = {}
+    for d in docs:
+        try:
+            day = d["created_at"][:10]
+            per_day[day] = per_day.get(day, 0) + 1
+        except Exception:
+            continue
+    daily = [{"date": k, "count": v} for k, v in sorted(per_day.items())]
+
+    total_pages = await db.custom_pages.count_documents({})
+    total_tools_tracked = await db.tool_views.count_documents({})
+
+    return {
+        "top_tools": top,
+        "total_views": total_views,
+        "total_tools_tracked": total_tools_tracked,
+        "contacts": {
+            "total": total_contacts,
+            "last_7d": week_contacts,
+            "last_30d": month_contacts,
+        },
+        "contacts_daily": daily,
+        "total_pages": total_pages,
+    }
+
+
 # ==================== AI ENDPOINTS ====================
 @api_router.post("/ai/bio")
 async def ai_bio(req: BioRequest):
