@@ -1,0 +1,141 @@
+{
+  "theme": {
+    "mode": "hybrid",
+    "default": "system",
+    "toggle_required": true,
+    "rtl_required": true
+  },
+  "typography": {
+    "font_family": {
+      "primary": "'Alexandria', sans-serif",
+      "import_url": "https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700;800&display=swap"
+    },
+    "guidelines": [
+      "Use 'Alexandria' for all headings and body text to maintain a modern, elegant Arabic look.",
+      "CRITICAL (Arabic Typography): Do NOT use tight tracking (letter-spacing). Arabic script is cursive and tight tracking breaks the character connections.",
+      "CRITICAL (Arabic Typography): Always use generous line heights (leading-relaxed or leading-loose) as Arabic characters are taller and have more vertical diacritics.",
+      "Heading weights: Use font-semibold (600) or font-bold (700).",
+      "Body weights: Use font-light (300) or font-normal (400)."
+    ],
+    "scale": {
+      "h1": "text-4xl md:text-5xl lg:text-6xl leading-tight",
+      "h2": "text-2xl md:text-3xl lg:text-4xl leading-snug",
+      "h3": "text-xl md:text-2xl leading-snug",
+      "body": "text-base md:text-lg leading-relaxed",
+      "small": "text-sm leading-normal"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary_emerald": {
+        "light": "#059669",
+        "default": "#047857",
+        "dark": "#065F46",
+        "deep": "#022C22"
+      },
+      "accent_gold": {
+        "light": "#FDE047",
+        "default": "#EAB308",
+        "dark": "#CA8A04",
+        "metallic": "#D4AF37"
+      },
+      "background": {
+        "light_mode": "#FAFAF9",
+        "light_surface": "#FFFFFF",
+        "dark_mode": "#02120C",
+        "dark_surface": "#062218"
+      },
+      "text": {
+        "light_mode": "#1C1917",
+        "dark_mode": "#F5F5F4",
+        "muted_light": "#57534E",
+        "muted_dark": "#A8A29E"
+      }
+    },
+    "guidelines": [
+      "Light Theme: Use off-white (#FAFAF9) background. Cards/surfaces should be pure white (#FFFFFF) with a delicate 1px emerald/10 border.",
+      "Dark Theme: Use deep emerald-tinted black (#02120C) as background. Cards should be slightly lighter (#062218) with emerald/20 borders.",
+      "Gold Accents: Use the metallic gold (#D4AF37) for primary CTAs, hover states on cards, active tabs, and important icons.",
+      "Gradients: Use subtle Emerald to Deep Green gradients for hero backgrounds. Avoid harsh, highly saturated gradients. Use Gold gradients strictly for premium badges or special tool highlights.",
+      "Forbidden: Do not use generic Tailwind blue or indigo anywhere. Replace all default focus rings with gold or emerald."
+    ]
+  },
+  "layouts": {
+    "global": {
+      "direction": "rtl",
+      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+      "spacing_system": "Generous spacing. p-6 or p-8 for cards. gap-6 or gap-8 for grids."
+    },
+    "landing_page": {
+      "hero": "Centralized search bar, rich typography, subtle emerald abstract background texture, gold accent buttons.",
+      "tools_grid": "Bento-style or high-density CSS Grid (grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4). Categorized by sections (Islamic, Finance, Health, etc.)."
+    }
+  },
+  "components": {
+    "tool_cards": [
+      "Must have an icon, title, and short description.",
+      "Hover effect: Translate-y slightly (-translate-y-1), increase shadow, border changes to gold.",
+      "Dark mode: Use subtle Glassmorphism (bg-emerald-950/40 backdrop-blur-md) with 1px emerald/20 border."
+    ],
+    "header": [
+      "Sticky header with backdrop-blur-xl bg-background/80.",
+      "Contains: Logo (Right), Dark Mode Toggle (Left), Share Button (Left), Search Trigger."
+    ],
+    "footer": [
+      "Large padding (py-16).",
+      "Text: 'جميع الحقوق محفوظه - برمجة وتصميم مطر الموايقي'.",
+      "Interactive: Clicking 'مطر الموايقي' MUST trigger the Contact Modal.",
+      "Contact Info block: Twitter (@edm2n) and Email (edm2n@msn.com)."
+    ],
+    "buttons": [
+      "Primary: bg-emerald-700 hover:bg-emerald-800 text-white.",
+      "Accent (Gold): bg-[#D4AF37] hover:bg-[#CA8A04] text-black font-semibold.",
+      "Corner radius: rounded-xl or rounded-2xl (modern soft corners)."
+    ],
+    "pwa_install": [
+      "Floating action button or prominent header button: 'أضف للشاشة الرئيسية' (Add to Home Screen)."
+    ]
+  },
+  "visual_enhancers": {
+    "textures": "Use CSS noise or subtle grain overlay on the dark theme to make it feel premium.",
+    "borders": "Use 1px borders generously to separate grid items instead of heavy shadows, creating a 'technical/directory' feel."
+  },
+  "motion": {
+    "hover": "transition-all duration-300 ease-out",
+    "page_load": "Staggered fade-in for tool cards using Framer Motion (or simple CSS animations).",
+    "modals": "Scale-in and fade-in for the Contact Modal and tool calculators."
+  },
+  "accessibility": {
+    "data_testid": "CRITICAL: Every interactive element (buttons, links, inputs, cards) MUST have a descriptive 'data-testid' attribute (e.g., data-testid='tool-card-bmi', data-testid='footer-contact-trigger').",
+    "contrast": "Ensure gold text on white background is dark enough (#CA8A04) to meet APCA contrast ratios. If not, use gold as background with dark text.",
+    "focus": "focus:outline-none focus:ring-2 focus:ring-accent_gold focus:ring-offset-2 focus:ring-offset-background"
+  },
+  "media": {
+    "icons": {
+      "library": "lucide-react",
+      "instructions": "For RTL, ensure direction-specific icons (like arrows) are flipped. Use 'transform scale-x-[-1]' if a specific RTL icon isn't available."
+    },
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1629197520635-16570fbd0bb3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwxfHxlbWVyYWxkJTIwZ3JlZW4lMjBhYnN0cmFjdCUyMHRleHR1cmV8ZW58MHx8fHwxNzg0NDUyMjExfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Emerald green abstract texture. Use with very low opacity (10-15%) overlay in the hero section to add premium depth."
+      }
+    ]
+  },
+  "universal_guidelines_for_main_agent": [
+    "CRITICAL: The entire application must be wrapped in a layout with `dir='rtl'`.",
+    "CRITICAL: Use Tailwind's logical properties (ps-, pe-, ms-, me-, start-, end-) instead of physical properties (pl-, pr-, ml-, mr-, left-, right-) to ensure perfect RTL support.",
+    "CRITICAL: All interactive elements MUST have `data-testid`.",
+    "Avoid generic centered layouts. Use robust grid systems.",
+    "Use 'sonner' for toast notifications (e.g., when a user copies a result or shares).",
+    "DO NOT apply universal transitions (e.g., `* { transition: all }`). Target specific properties.",
+    "Ensure the Footer specifically handles the requirement to open a Contact Modal when clicking 'مطر الموايقي'."
+  ],
+  "required_packages_for_main_agent": [
+    "lucide-react",
+    "sonner",
+    "framer-motion",
+    "next-themes"
+  ]
+}
