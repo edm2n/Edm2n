@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 5 (Smart Fetcher/Scraper) testing complete. Backend: 34/34 pytest passing (27 regression + 7 new TestSmartFetch). All smart-fetch endpoints, auth, error handling, save-flow, and duplicate handling verified. Frontend: Admin Smart Fetcher UI (admin-fetch-input/preview/publish), PageEditor with pe-image + pe-excerpt, Home section-articles + ArticleCards, CustomPage renderer all verified end-to-end on live preview URL.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/admin/smart-fetch", "issue": "When backend returns HTTP 502 for unreachable URLs (via HTTPException(status_code=502, detail='<arabic>')), the Cloudflare/ingress in front of preview.emergentagent.com intercepts and replaces the response body with its own HTML 'Bad Gateway' page. Frontend loses the Arabic detail message and falls back to generic 'تعذّر الجلب' toast. Consider returning 400/422 (client error) instead of 502 for unreachable URLs so ingress does not strip the body. This is preview-env specific and may be non-issue in production."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/pytest_smartfetch.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: change smart-fetch outbound-error status from 502 to 4xx (e.g. 422 or 400) so Cloudflare does not swallow the Arabic detail body. Currently users see generic frontend fallback 'تعذّر الجلب' for unreachable URLs instead of backend's rich Arabic message."
+  ],
+  "critical_code_review_comments": [
+    "server.py L559: duplicate-slug loop `while db.custom_pages.find_one({slug: slug})` correctly guarantees uniqueness but does an async DB call per iteration; for very common titles could do many queries. Acceptable for current scale.",
+    "server.py L554: smart_fetch_save internally calls smart_fetch(...) which does the network fetch + extraction twice if the client just called preview then publish — no caching. Consider passing already-fetched data in body to avoid re-fetching, OR add a short in-memory TTL cache keyed by URL.",
+    "server.py L441 _resolve_query_to_url: DuckDuckGo HTML endpoint is used for keyword search. This is fragile (DDG may change markup or throttle) and the response is not validated (no user-agent rotation, no fallback). Low priority since URL-mode is the primary flow.",
+    "server.py L494-508: MIN_EXTRACTED_SIZE=80 + `favor_recall=True` may over-extract sidebar noise on complex sites. Trade-off is documented; fine for now.",
+    "Home.jsx L14: article-card gradient fallback is `from-[#D4AF37]/20 to-transparent` — very subtle, could be more distinctive. Minor UX polish, not a bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestSmartFetch class with 7 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (34/34, incl. 7 new smart-fetch)",
+    "frontend": "100% of iteration-5 flows verified end-to-end"
+  },
+  "test_credentials": "admin / Matar@2026",
+  "seed_data_creation": "Created 1-3 example-domain-N copies in db.custom_pages via duplicate-slug test (cleaned up in same test). Public /api/pages currently lists 'example-domain' (from earlier main-agent testing) and 'no7ksa' (welcome page).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend suite has 34 pytest tests (health, contact, external, public meta, admin auth, admin pages CRUD, admin tool overrides, admin config, tracking+stats, AI, smart-fetch). Smart-fetch backend + frontend fully verified. Only known limitation is CF-intercepting-502-bodies for unreachable URLs — flagged as minor action item. All other iterations still green.",
+  "rca of the issue": "N/A — no failures. Only a minor infra observation (CF ingress replaces 502 body) documented for main agent."
+}

@@ -66,8 +66,15 @@ class CustomPage(BaseModel):
     slug: str
     title: str
     content: str  # Markdown or plain text
+    excerpt: Optional[str] = ""
+    image: Optional[str] = ""
+    source_url: Optional[str] = ""
     published: bool = True
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class SmartFetchBody(BaseModel):
+    query: str  # URL or keyword
 
 
 class SiteConfig(BaseModel):
@@ -202,7 +209,7 @@ async def get_page(slug: str):
 
 @api_router.get("/pages")
 async def list_pages():
-    docs = await db.custom_pages.find({"published": True}, {"_id": 0}).to_list(200)
+    docs = await db.custom_pages.find({"published": True}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return docs
 
 
@@ -414,6 +421,155 @@ async def admin_upsert_tool_override(slug: str, override: ToolOverride, _: str =
 async def admin_delete_tool_override(slug: str, _: str = Depends(verify_admin)):
     await db.tool_overrides.delete_one({"slug": slug})
     return {"deleted": True}
+
+
+# ==================== SMART FETCH ====================
+import re
+import unicodedata
+
+
+def _slugify(text: str, maxlen: int = 60) -> str:
+    text = unicodedata.normalize("NFKD", text or "")
+    text = re.sub(r"[^\w\s\u0600-\u06FF-]", "", text)  # keep Arabic + alnum
+    text = re.sub(r"[\s_]+", "-", text.strip())
+    return text.lower()[:maxlen] or f"page-{uuid.uuid4().hex[:8]}"
+
+
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+
+
+async def _resolve_query_to_url(query: str) -> Optional[str]:
+    """If query is URL return it. Otherwise search DuckDuckGo HTML for first result."""
+    q = query.strip()
+    if q.startswith("http://") or q.startswith("https://"):
+        return q
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True,
+                                  headers={"User-Agent": USER_AGENT}) as hc:
+        try:
+            r = await hc.get("https://html.duckduckgo.com/html/", params={"q": q})
+            if r.status_code == 200:
+                m = re.search(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"', r.text)
+                if m:
+                    href = m.group(1)
+                    m2 = re.search(r"uddg=([^&]+)", href)
+                    if m2:
+                        from urllib.parse import unquote
+                        return unquote(m2.group(1))
+                    return href
+        except Exception:
+            pass
+    return None
+
+
+@api_router.post("/admin/smart-fetch")
+async def smart_fetch(body: SmartFetchBody, _: str = Depends(verify_admin)):
+    import trafilatura
+    from trafilatura.settings import use_config
+    q = (body.query or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="أدخل رابطاً أو كلمة مفتاحية")
+
+    url = await _resolve_query_to_url(q)
+    if not url:
+        raise HTTPException(status_code=404, detail="لم يتم العثور على أي نتيجة")
+
+    # Download page
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True,
+                                      headers={
+                                          "User-Agent": USER_AGENT,
+                                          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                                          "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
+                                      }) as hc:
+            r = await hc.get(url)
+            if r.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f"الرابط لا يستجيب (HTTP {r.status_code})")
+            html = r.text
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"تعذّر الوصول للرابط: {type(e).__name__}")
+
+    # Extract with trafilatura → Markdown output + metadata
+    cfg = use_config()
+    cfg.set("DEFAULT", "MIN_EXTRACTED_SIZE", "80")
+
+    extracted = trafilatura.extract(
+        html,
+        url=url,
+        output_format="markdown",
+        include_images=True,
+        include_links=True,
+        include_tables=True,
+        favor_recall=True,
+        config=cfg,
+    )
+    if not extracted or len(extracted.strip()) < 50:
+        raise HTTPException(status_code=422, detail="تعذّر استخراج محتوى مفيد من الصفحة (قد تكون الصفحة تمنع الاستخراج أو خالية من نص).")
+
+    meta = trafilatura.extract_metadata(html) or None
+    title = ""
+    image = ""
+    excerpt = ""
+    if meta:
+        title = meta.title or ""
+        image = meta.image or ""
+        excerpt = (meta.description or "")[:220]
+    if not title:
+        m = re.search(r"<title[^>]*>([^<]+)</title>", html, re.IGNORECASE)
+        if m: title = m.group(1).strip()
+    if not title:
+        title = url
+
+    if not excerpt:
+        # Take first paragraph of extracted content
+        first_para = next((p.strip() for p in extracted.split("\n") if len(p.strip()) > 40), "")
+        excerpt = first_para[:220]
+
+    if not image:
+        m = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', html, re.IGNORECASE)
+        if m: image = m.group(1)
+
+    slug = _slugify(title) or f"article-{uuid.uuid4().hex[:8]}"
+
+    return {
+        "slug": slug,
+        "title": title[:200],
+        "content": extracted,
+        "excerpt": excerpt,
+        "image": image,
+        "source_url": url,
+    }
+
+
+class SmartFetchSaveBody(BaseModel):
+    query: str
+    slug: Optional[str] = None
+    publish: bool = True
+
+
+@api_router.post("/admin/smart-fetch-save", response_model=CustomPage)
+async def smart_fetch_save(body: SmartFetchSaveBody, _: str = Depends(verify_admin)):
+    """One-shot: fetch a URL/keyword and directly save as a published page."""
+    data = await smart_fetch(SmartFetchBody(query=body.query), _)
+    slug = body.slug or data["slug"]
+    # ensure unique slug
+    base = slug
+    n = 1
+    while await db.custom_pages.find_one({"slug": slug}):
+        n += 1
+        slug = f"{base}-{n}"
+    page = CustomPage(
+        slug=slug,
+        title=data["title"],
+        content=data["content"] + ("\n\n---\n\n*المصدر: [" + data["source_url"] + "](" + data["source_url"] + ")*" if data.get("source_url") else ""),
+        excerpt=data.get("excerpt", ""),
+        image=data.get("image", ""),
+        source_url=data.get("source_url", ""),
+        published=body.publish,
+    )
+    await db.custom_pages.insert_one(page.model_dump())
+    return page
 
 
 app.include_router(api_router)

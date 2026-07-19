@@ -1,7 +1,42 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { TOOLS, CATEGORIES, TOOL_MAP } from '../lib/toolsRegistry';
 import { ToolCard, getMostUsedSlugs } from '../lib/ui';
-import { Search, Sparkles, ArrowLeft, TrendingUp, Award, Clock } from 'lucide-react';
+import { Search, Sparkles, ArrowLeft, TrendingUp, Award, Clock, Newspaper, Calendar as CalIcon } from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function ArticleCard({ page, index }) {
+  return (
+    <Link
+      to={`/p/${page.slug}`}
+      data-testid={`article-card-${page.slug}`}
+      className="card-lift fade-in-up group block rounded-2xl border border-border bg-card overflow-hidden"
+      style={{ animationDelay: `${(index % 6) * 50}ms` }}
+    >
+      {page.image ? (
+        <div className="relative h-40 overflow-hidden bg-muted">
+          <img src={page.image} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => e.target.style.display = 'none'} />
+        </div>
+      ) : (
+        <div className="h-40 bg-gradient-to-br from-[#D4AF37]/20 to-transparent grid place-items-center">
+          <Newspaper className="h-10 w-10 text-[#D4AF37]/60" />
+        </div>
+      )}
+      <div className="p-5">
+        <h3 className="font-bold text-base group-hover:text-[#D4AF37] transition-colors line-clamp-2">{page.title}</h3>
+        {page.excerpt && <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{page.excerpt}</p>}
+        {page.created_at && (
+          <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
+            <CalIcon className="h-3 w-3" />
+            {new Date(page.created_at).toLocaleDateString('ar-SA')}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
 
 function Section({ title, icon: Icon, tools, testid }) {
   if (!tools?.length) return null;
@@ -20,6 +55,11 @@ function Section({ title, icon: Icon, tools, testid }) {
 
 export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
   const [activeCat, setActiveCat] = useState('all');
+  const [articles, setArticles] = useState([]);
+
+  useEffect(() => {
+    axios.get(`${API}/pages`).then((r) => setArticles(r.data || [])).catch(() => {});
+  }, []);
 
   // Apply overrides + hide flagged tools
   const visibleTools = useMemo(() => {
@@ -80,6 +120,19 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
 
       {/* Editor's Picks */}
       <Section title="اخترنا لكم" icon={Award} tools={editorPicks} testid="section-editor-picks" />
+
+      {/* Articles */}
+      {articles.length > 0 && (
+        <section data-testid="section-articles" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Newspaper className="h-5 w-5 text-[#D4AF37]" />
+            <h2 className="text-xl md:text-2xl font-bold">آخر المقالات</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {articles.slice(0, 8).map((a, i) => <ArticleCard key={a.slug} page={a} index={i} />)}
+          </div>
+        </section>
+      )}
 
       {/* Most Used */}
       {mostUsed.length > 0 && (

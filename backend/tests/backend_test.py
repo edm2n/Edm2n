@@ -301,3 +301,103 @@ class TestAI:
         data = r.json()
         assert "text" in data
         assert isinstance(data["text"], str) and len(data["text"]) > 5
+
+
+# ---------- Smart Fetch (iteration 5) ----------
+class TestSmartFetch:
+    def test_smart_fetch_requires_auth(self, client):
+        r = client.post(f"{API}/admin/smart-fetch", json={"query": "https://example.com"}, timeout=15)
+        assert r.status_code in (401, 403), f"expected 401/403, got {r.status_code}: {r.text[:200]}"
+
+    def test_smart_fetch_save_requires_auth(self, client):
+        r = client.post(f"{API}/admin/smart-fetch-save", json={"query": "https://example.com", "publish": True}, timeout=15)
+        assert r.status_code in (401, 403)
+
+    def test_smart_fetch_example_com(self, admin_client):
+        r = admin_client.post(f"{API}/admin/smart-fetch", json={"query": "https://example.com"}, timeout=30)
+        assert r.status_code == 200, f"smart-fetch example.com failed: {r.status_code} {r.text[:400]}"
+        data = r.json()
+        # Required keys
+        for k in ("slug", "title", "content", "excerpt", "image", "source_url"):
+            assert k in data, f"missing key: {k}"
+        assert "Example Domain" in data["title"], f"unexpected title: {data['title']}"
+        assert isinstance(data["content"], str) and len(data["content"]) > 20
+        assert data["source_url"].startswith("https://example.com")
+        assert isinstance(data["slug"], str) and len(data["slug"]) > 0
+
+    def test_smart_fetch_invalid_url_returns_error_arabic(self, admin_client):
+        r = admin_client.post(f"{API}/admin/smart-fetch",
+                              json={"query": "https://this-domain-does-not-exist-xyz123.com"}, timeout=30)
+        # Should be a 5xx-family error (502) with Arabic detail, not a crash
+        assert r.status_code >= 400 and r.status_code < 600, f"expected error status, got {r.status_code}"
+        # NOTE: The ingress/Cloudflare in front of this preview environment replaces
+        # backend 502 responses with its own HTML Bad Gateway page — the Arabic detail
+        # message is lost in transit. We still assert the status code family is correct.
+        # Confirm Arabic detail is generated correctly by hitting an endpoint that produces
+        # a 4xx (not intercepted by CF). Empty query → 400 with Arabic detail.
+        r2 = admin_client.post(f"{API}/admin/smart-fetch", json={"query": "   "}, timeout=15)
+        assert r2.status_code == 400
+        data = r2.json()
+        assert "detail" in data
+        assert any("\u0600" <= ch <= "\u06FF" for ch in data["detail"]), \
+            f"expected Arabic detail, got: {data['detail']}"
+
+    def test_smart_fetch_short_content_returns_422(self, admin_client):
+        # httpbin returns tiny content — trafilatura should reject as too short.
+        # If extraction succeeds anyway, we still assert some sane error/success shape.
+        r = admin_client.post(f"{API}/admin/smart-fetch",
+                              json={"query": "https://httpbin.org/html"}, timeout=30)
+        # httpbin/html actually returns a nontrivial Herman Melville excerpt — likely 200.
+        # Try a truly empty page instead:
+        r2 = admin_client.post(f"{API}/admin/smart-fetch",
+                               json={"query": "https://httpbin.org/robots.txt"}, timeout=30)
+        # robots.txt has almost no markup — should yield 422 (too short) or 502
+        assert r2.status_code in (422, 502), f"expected 422/502 for empty page, got {r2.status_code}: {r2.text[:200]}"
+        if r2.status_code == 422:
+            data = r2.json()
+            assert "detail" in data
+            assert any("\u0600" <= ch <= "\u06FF" for ch in data["detail"])
+
+    def test_smart_fetch_save_creates_public_page(self, admin_client, client):
+        r = admin_client.post(f"{API}/admin/smart-fetch-save",
+                              json={"query": "https://example.com", "publish": True}, timeout=30)
+        assert r.status_code == 200, f"smart-fetch-save failed: {r.status_code} {r.text[:400]}"
+        page = r.json()
+        assert "id" in page and "slug" in page
+        assert page["published"] is True
+        assert page["source_url"].startswith("https://example.com")
+        # Public list should now include this page
+        r2 = client.get(f"{API}/pages", timeout=15)
+        assert r2.status_code == 200
+        listing = r2.json()
+        assert any(p["slug"] == page["slug"] for p in listing), \
+            f"created slug {page['slug']} not in /api/pages list"
+        # Sort order sanity: created_at desc — first item should have most recent created_at
+        if len(listing) >= 2:
+            assert listing[0]["created_at"] >= listing[-1]["created_at"]
+        # Public GET by slug
+        r3 = client.get(f"{API}/pages/{page['slug']}", timeout=15)
+        assert r3.status_code == 200
+        fetched = r3.json()
+        assert fetched["title"] == page["title"]
+        for k in ("excerpt", "image", "source_url", "published", "created_at"):
+            assert k in fetched, f"missing {k} in public page response"
+        # cleanup
+        admin_client.delete(f"{API}/admin/pages/{page['id']}", timeout=15)
+
+    def test_smart_fetch_save_duplicate_slug_no_crash(self, admin_client, client):
+        # Call twice — should not crash; must create unique slug or update
+        r1 = admin_client.post(f"{API}/admin/smart-fetch-save",
+                               json={"query": "https://example.com", "publish": True}, timeout=30)
+        assert r1.status_code == 200, r1.text
+        p1 = r1.json()
+        r2 = admin_client.post(f"{API}/admin/smart-fetch-save",
+                               json={"query": "https://example.com", "publish": True}, timeout=30)
+        assert r2.status_code == 200, f"duplicate call crashed: {r2.status_code} {r2.text[:300]}"
+        p2 = r2.json()
+        # Either same slug (update-in-place, unlikely per code) OR different slug (n-suffix)
+        assert p2["slug"] != p1["slug"] or p2["id"] == p1["id"], \
+            "expected unique slug or same doc"
+        # cleanup both
+        for pid in {p1["id"], p2["id"]}:
+            admin_client.delete(f"{API}/admin/pages/{pid}", timeout=15)

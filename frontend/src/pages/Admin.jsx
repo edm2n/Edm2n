@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Input, Button } from '../lib/ui';
 import { TOOLS, TOOL_MAP } from '../lib/toolsRegistry';
-import { LogOut, Trash2, Eye, EyeOff, Plus, Save, BarChart3, Users, FileText, Wrench } from 'lucide-react';
+import { LogOut, Trash2, Eye, EyeOff, Plus, Save, BarChart3, Users, FileText, Wrench, Wand2, Sparkles, ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TOKEN_KEY = 'admin_token';
@@ -90,11 +90,13 @@ function PagesTab() {
   const cfg = useAdminApi();
   const [pages, setPages] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [fetchQuery, setFetchQuery] = useState('');
+  const [fetching, setFetching] = useState(false);
 
   const load = () => axios.get(`${API}/admin/pages`, cfg).then((r) => setPages(r.data));
   useEffect(() => { load(); }, []);
 
-  const empty = { slug: '', title: '', content: '', published: true };
+  const empty = { slug: '', title: '', content: '', excerpt: '', image: '', source_url: '', published: true };
 
   const save = async (page) => {
     try {
@@ -111,24 +113,99 @@ function PagesTab() {
     toast.success('تم الحذف'); load();
   };
 
+  const smartFetch = async () => {
+    if (!fetchQuery.trim()) { toast.error('أدخل رابطاً أو كلمة مفتاحية'); return; }
+    setFetching(true);
+    try {
+      const r = await axios.post(`${API}/admin/smart-fetch`, { query: fetchQuery }, cfg);
+      setEditing({
+        slug: r.data.slug,
+        title: r.data.title,
+        content: r.data.content + (r.data.source_url ? `\n\n---\n\n*المصدر: [${r.data.source_url}](${r.data.source_url})*` : ''),
+        excerpt: r.data.excerpt,
+        image: r.data.image,
+        source_url: r.data.source_url,
+        published: true,
+      });
+      toast.success('تم جلب المحتوى — راجعه ثم احفظ');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'تعذّر الجلب');
+    } finally { setFetching(false); }
+  };
+
+  const smartFetchAndSave = async () => {
+    if (!fetchQuery.trim()) { toast.error('أدخل رابطاً أو كلمة مفتاحية'); return; }
+    if (!confirm('سيتم الجلب وحفظه ونشره مباشرة. متابعة؟')) return;
+    setFetching(true);
+    try {
+      const r = await axios.post(`${API}/admin/smart-fetch-save`, { query: fetchQuery, publish: true }, cfg);
+      toast.success(`تم النشر: ${r.data.title}`);
+      setFetchQuery(''); load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'تعذّر الجلب والنشر');
+    } finally { setFetching(false); }
+  };
+
   if (editing) return <PageEditor page={editing} onSave={save} onCancel={() => setEditing(null)} />;
 
   return (
     <div className="space-y-4">
-      <Button testid="admin-new-page" onClick={() => setEditing(empty)}><Plus className="h-4 w-4" /> صفحة جديدة</Button>
+      {/* Smart Fetch */}
+      <div className="rounded-2xl border-2 border-dashed border-[#D4AF37]/40 bg-[#D4AF37]/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-[#D4AF37]" />
+          <h3 className="font-bold">جلب ذكي (Smart Fetcher)</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          الصق رابط مقال، أو اكتب كلمة مفتاحية — سنجلب لك العنوان والمحتوى والصورة تلقائياً بعد تنظيفه من الإعلانات.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            data-testid="admin-fetch-input"
+            value={fetchQuery}
+            onChange={(e) => setFetchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && smartFetch()}
+            placeholder="مثال: https://example.com/article  أو  فوائد القهوة"
+            dir="auto"
+            className="flex-1 rounded-xl border border-input bg-background px-4 py-3 outline-none focus:border-[#D4AF37]"
+          />
+          <Button testid="admin-fetch-preview" onClick={smartFetch} disabled={fetching}>
+            <Wand2 className="h-4 w-4" /> {fetching ? 'جاري الجلب...' : 'جلب ذكي'}
+          </Button>
+          <Button testid="admin-fetch-publish" variant="ghost" onClick={smartFetchAndSave} disabled={fetching}>
+            جلب ونشر مباشر
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold">صفحاتك المخصصة ({pages.length})</h3>
+        <Button testid="admin-new-page" onClick={() => setEditing(empty)}><Plus className="h-4 w-4" /> صفحة يدوياً</Button>
+      </div>
+
       {pages.map((p) => (
-        <div key={p.id} className="rounded-2xl border border-border p-4 flex items-center justify-between" data-testid={`admin-page-${p.slug}`}>
-          <div>
-            <div className="font-bold">{p.title}</div>
-            <div className="text-sm text-muted-foreground" dir="ltr">/p/{p.slug} — {p.published ? 'منشورة' : 'مسودة'}</div>
+        <div key={p.id} className="rounded-2xl border border-border p-4 flex items-center justify-between gap-3" data-testid={`admin-page-${p.slug}`}>
+          {p.image ? (
+            <img src={p.image} alt="" className="h-14 w-14 rounded-xl object-cover shrink-0" onError={(e) => e.target.style.display = 'none'} />
+          ) : (
+            <div className="h-14 w-14 rounded-xl bg-muted grid place-items-center shrink-0"><ImageIcon className="h-6 w-6 text-muted-foreground" /></div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="font-bold truncate">{p.title}</div>
+            <div className="text-xs text-muted-foreground truncate" dir="ltr">/p/{p.slug} — {p.published ? 'منشورة' : 'مسودة'}</div>
+            {p.source_url && (
+              <a href={p.source_url} target="_blank" rel="noreferrer" className="text-xs text-[#D4AF37] inline-flex items-center gap-1" dir="ltr">
+                <ExternalLink className="h-3 w-3" /> المصدر
+              </a>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <Button testid={`admin-edit-${p.slug}`} variant="ghost" onClick={() => setEditing(p)}>تعديل</Button>
             <Button testid={`admin-del-${p.slug}`} variant="ghost" onClick={() => del(p.id)}><Trash2 className="h-4 w-4" /></Button>
           </div>
         </div>
       ))}
-      {pages.length === 0 && <p className="text-muted-foreground text-center py-8">لا توجد صفحات بعد</p>}
+      {pages.length === 0 && <p className="text-muted-foreground text-center py-8">لا توجد صفحات بعد — جرّب الجلب الذكي أو أنشئ صفحة يدوياً</p>}
     </div>
   );
 }
@@ -154,8 +231,13 @@ function PageEditor({ page, onSave, onCancel }) {
 
   return (
     <div className="space-y-4 rounded-2xl border border-border p-6 bg-card">
-      <Input testid="pe-slug" label="الرابط (بالإنجليزية، مثال: my-article)" value={p.slug} onChange={(e) => setP({ ...p, slug: e.target.value })} dir="ltr" />
+      <Input testid="pe-slug" label="الرابط (بالإنجليزية أو العربية، مثال: my-article)" value={p.slug} onChange={(e) => setP({ ...p, slug: e.target.value })} dir="ltr" />
       <Input testid="pe-title" label="العنوان" value={p.title} onChange={(e) => setP({ ...p, title: e.target.value })} />
+      <Input testid="pe-image" label="رابط الصورة البارزة (اختياري)" value={p.image || ''} onChange={(e) => setP({ ...p, image: e.target.value })} dir="ltr" placeholder="https://..." />
+      {p.image && (
+        <img src={p.image} alt="" className="rounded-2xl max-h-48 object-cover" onError={(e) => e.target.style.display = 'none'} />
+      )}
+      <Input testid="pe-excerpt" label="مقتطف قصير (يظهر في الصفحة الرئيسية)" value={p.excerpt || ''} onChange={(e) => setP({ ...p, excerpt: e.target.value })} placeholder="١-٢ جملة تصف الموضوع" />
 
       {/* Markdown toolbar shortcuts */}
       <div className="flex flex-wrap gap-2 text-xs">
