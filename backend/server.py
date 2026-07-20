@@ -1,8 +1,10 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, UploadFile, File
+from fastapi.responses import Response, PlainTextResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import io
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
@@ -119,24 +121,117 @@ async def root():
     return {"message": "Dalil Matar API", "version": "1.1"}
 
 
+# ==================== SITEMAP & ROBOTS ====================
+STATIC_ROUTES = [
+    ("/",         "1.0", "daily"),
+    ("/about",    "0.6", "monthly"),
+    ("/faq",      "0.6", "monthly"),
+    ("/privacy",  "0.4", "yearly"),
+    ("/terms",    "0.4", "yearly"),
+    ("/links",    "0.5", "monthly"),
+]
+
+
+def _load_tool_slugs():
+    try:
+        p = Path(__file__).parent / "tool_slugs.txt"
+        return [s.strip() for s in p.read_text(encoding="utf-8").splitlines() if s.strip()]
+    except Exception:
+        return []
+
+
+def _base_url_from_request(req: Request) -> str:
+    proto = req.headers.get("x-forwarded-proto", req.url.scheme or "https")
+    host = req.headers.get("x-forwarded-host") or req.headers.get("host") or req.url.hostname
+    return f"{proto}://{host}"
+
+
+@api_router.get("/sitemap.xml")
+async def sitemap_xml(request: Request):
+    base = _base_url_from_request(request)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    urls = []
+
+    # Static routes
+    for path, priority, changefreq in STATIC_ROUTES:
+        urls.append({"loc": f"{base}{path}", "lastmod": now, "priority": priority, "changefreq": changefreq})
+
+    # Tools
+    for slug in _load_tool_slugs():
+        urls.append({"loc": f"{base}/tool/{slug}", "lastmod": now, "priority": "0.8", "changefreq": "monthly"})
+
+    # Published custom pages / articles
+    docs = await db.custom_pages.find({"published": True}, {"_id": 0, "slug": 1, "created_at": 1}).to_list(1000)
+    for d in docs:
+        lastmod = (d.get("created_at") or now)[:10]
+        urls.append({"loc": f"{base}/p/{d['slug']}", "lastmod": lastmod, "priority": "0.7", "changefreq": "weekly"})
+
+    def esc(s: str) -> str:
+        return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                 .replace('"', "&quot;").replace("'", "&apos;"))
+
+    body = ['<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        body.append("  <url>")
+        body.append(f"    <loc>{esc(u['loc'])}</loc>")
+        body.append(f"    <lastmod>{u['lastmod']}</lastmod>")
+        body.append(f"    <changefreq>{u['changefreq']}</changefreq>")
+        body.append(f"    <priority>{u['priority']}</priority>")
+        body.append("  </url>")
+    body.append("</urlset>")
+    return Response(content="\n".join(body), media_type="application/xml; charset=utf-8",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@api_router.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt(request: Request):
+    base = _base_url_from_request(request)
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin",
+        "Disallow: /api/admin/",
+        "",
+        f"Sitemap: {base}/sitemap.xml",
+        f"Sitemap: {base}/api/sitemap.xml",
+    ]
+    return "\n".join(lines)
+
+
 @api_router.post("/contact", response_model=ContactMessage)
 async def create_contact(payload: ContactCreate):
     obj = ContactMessage(**payload.model_dump())
     await db.contacts.insert_one(obj.model_dump())
     return obj
+#بداية دالة صفهة تفريغ الصورع
+# ضع مفتاحك هنا أو في ملف الـ .env
+REMOVE_BG_API_KEY = os.environ.get("REMOVE_BG_API_KEY", "Awmp2DCjJgHCJr8cuJpCR1ri")
 
-
-@api_router.get("/prayer-times")
-async def prayer_times(city: str = "Riyadh", country: str = "SA", method: int = 4):
+@api_router.post("/remove-bg")
+async def remove_background_api(file: UploadFile = File(...)):
+    """إزالة الخلفية بلمح البصر وبأعلى دقة باستخدام Remove.bg Official API"""
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as hc:
-            r = await hc.get("https://api.aladhan.com/v1/timingsByCity",
-                             params={"city": city, "country": country, "method": method})
-            r.raise_for_status()
-            return r.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Prayer API error: {e}")
+        input_image = await file.read()
+        
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                "https://api.remove.bg/v1.0/removebg",
+                files={"image_file": input_image},
+                data={"size": "auto"},
+                headers={"X-Api-Key": REMOVE_BG_API_KEY},
+            )
+            
+            if response.status_code == 200:
+                return Response(content=response.content, media_type="image/png")
+            else:
+                logger.error(f"Remove.bg API Error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail="فشلت المعالجة من خادم Remove.bg")
 
+    except Exception as e:
+        logger.error(f"Error in remove-bg: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة الصورة: {str(e)}")
+#نهاية صفحة تفريغ الصوره
 
 @api_router.get("/currency")
 async def currency_rates(base: str = "sar"):
@@ -460,87 +555,134 @@ async def _resolve_query_to_url(query: str) -> Optional[str]:
             pass
     return None
 
-
+# بدايه صفحة الجلب
 @api_router.post("/admin/smart-fetch")
 async def smart_fetch(body: SmartFetchBody, _: str = Depends(verify_admin)):
-    import trafilatura
-    from trafilatura.settings import use_config
+    """جلب بيانات الـ API وتفكيك الـ JSON تلقائياً إلى جداول وقوائم مرتبة"""
+    import json
+
     q = (body.query or "").strip()
     if not q:
-        raise HTTPException(status_code=400, detail="أدخل رابطاً أو كلمة مفتاحية")
+        raise HTTPException(status_code=400, detail="أدخل رابط الـ API المطلوب")
 
-    url = await _resolve_query_to_url(q)
-    if not url:
-        raise HTTPException(status_code=404, detail="لم يتم العثور على أي نتيجة")
+    # إضافة البرتوكول إذا لم يكن موجوداً
+    url = q if q.startswith(("http://", "https://")) else f"https://{q}"
 
-    # Download page
     try:
-        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True,
-                                      headers={
-                                          "User-Agent": USER_AGENT,
-                                          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                                          "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
-                                      }) as hc:
+        async with httpx.AsyncClient(
+            timeout=15.0,
+            follow_redirects=True,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Accept": "application/json, text/plain, */*",
+            },
+        ) as hc:
             r = await hc.get(url)
+
             if r.status_code >= 400:
-                raise HTTPException(status_code=422, detail=f"الرابط لا يستجيب (HTTP {r.status_code})")
-            html = r.text
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"الـ API أرجع خطأ (HTTP {r.status_code})",
+                )
+
+            try:
+                json_data = r.json()
+            except Exception:
+                raise HTTPException(
+                    status_code=422,
+                    detail="الرابط لا يرجع بيانات JSON صالحة للتفكيك.",
+                )
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"تعذّر الوصول للرابط: {type(e).__name__}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"تعذّر الاتصال بالرابط: {str(e)}",
+        )
 
-    # Extract with trafilatura → Markdown output + metadata
-    cfg = use_config()
-    cfg.set("DEFAULT", "MIN_EXTRACTED_SIZE", "80")
+    # --- دالة تفكيك وإعادة رسم البيانات (Parsing & Rendering) ---
+    def render_json_to_markdown(data, depth=0):
+        md_output = ""
 
-    extracted = trafilatura.extract(
-        html,
-        url=url,
-        output_format="markdown",
-        include_images=True,
-        include_links=True,
-        include_tables=True,
-        favor_recall=True,
-        config=cfg,
-    )
-    if not extracted or len(extracted.strip()) < 50:
-        raise HTTPException(status_code=422, detail="تعذّر استخراج محتوى مفيد من الصفحة (قد تكون الصفحة تمنع الاستخراج أو خالية من نص).")
+        # حالة 1: المصفوفات القابلة للجدولة (List of Objects)
+        if isinstance(data, list):
+            if not data:
+                return "_لا توجد عناصر لعرضها_\n"
 
-    meta = trafilatura.extract_metadata(html) or None
-    title = ""
-    image = ""
-    excerpt = ""
-    if meta:
-        title = meta.title or ""
-        image = meta.image or ""
-        excerpt = (meta.description or "")[:220]
-    if not title:
-        m = re.search(r"<title[^>]*>([^<]+)</title>", html, re.IGNORECASE)
-        if m: title = m.group(1).strip()
-    if not title:
-        title = url
+            # إذا كانت القائمة تحتوي على قواميس (Objects)
+            if isinstance(data[0], dict):
+                # استخراج كافة المفاتيح/الأعمدة
+                keys = list(
+                    dict.fromkeys([k for item in data if isinstance(item, dict) for k in item.keys()])
+                )
+                if keys:
+                    # بناء رأس الجدول
+                    header = "| " + " | ".join(str(k) for k in keys) + " |"
+                    divider = "| " + " | ".join(["---"] * len(keys)) + " |"
+                    rows = []
 
-    if not excerpt:
-        # Take first paragraph of extracted content
-        first_para = next((p.strip() for p in extracted.split("\n") if len(p.strip()) > 40), "")
-        excerpt = first_para[:220]
+                    for item in data[:50]:  # تحديد حد أقصى لعرض 50 عنصر
+                        if isinstance(item, dict):
+                            row = "| " + " | ".join(str(item.get(k, "")).replace("\n", " ") for k in keys) + " |"
+                            rows.append(row)
 
-    if not image:
-        m = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', html, re.IGNORECASE)
-        if m: image = m.group(1)
+                    return f"{header}\n{divider}\n" + "\n".join(rows) + "\n\n"
 
-    slug = _slugify(title) or f"article-{uuid.uuid4().hex[:8]}"
+            # إذا كانت القائمة عناصر نصية/عادية
+            list_items = [f"* {str(x)}" for x in data]
+            return "\n".join(list_items) + "\n\n"
+
+        # حالة 2: القواميس/الكائنات (Dictionary / Object)
+        elif isinstance(data, dict):
+            simple_pairs = {}
+            nested_items = {}
+
+            # فصل العناصر البسيطة عن العناصر المركبة
+            for k, v in data.items():
+                if isinstance(v, (dict, list)):
+                    nested_items[k] = v
+                else:
+                    simple_pairs[k] = v
+
+            # إخراج العناصر البسيطة في جدول أنيق
+            if simple_pairs:
+                header = "| العنصر / المفتاح | القيمة |"
+                divider = "| :--- | :--- |"
+                rows = [f"| **{k}** | {str(v)} |" for k, v in simple_pairs.items()]
+                md_output += f"{header}\n{divider}\n" + "\n".join(rows) + "\n\n"
+
+            # معالجة الكائنات المتداخلة (Nested Objects)
+            for k, v in nested_items.items():
+                heading_level = "#" * min(depth + 3, 6)
+                md_output += f"{heading_level} 📌 {k}\n\n"
+                md_output += render_json_to_markdown(v, depth + 1)
+
+            return md_output
+
+        # حالة 3: القيم المباشرة
+        else:
+            return f"{str(data)}\n\n"
+
+    # تفكيك ورسم البيانات
+    rendered_content = render_json_to_markdown(json_data)
+
+    clean_url = url.split("?")[0].rstrip("/")
+    endpoint_name = clean_url.split("/")[-1] or "API Data"
+
+    title = f"بيانات الـ API: {endpoint_name}"
+    excerpt = f"بيانات منسقة ومفككة تم جلبها من: {url}"
+    content = f"### 📊 البيانات المجلوبة والمنسقة:\n\n{rendered_content}"
 
     return {
-        "slug": slug,
+        "slug": _slugify(endpoint_name) or f"api-{uuid.uuid4().hex[:8]}",
         "title": title[:200],
-        "content": extracted,
+        "content": content,
         "excerpt": excerpt,
-        "image": image,
+        "image": "",
         "source_url": url,
     }
-
+# نهاية صفحة الجلب
 
 class SmartFetchSaveBody(BaseModel):
     query: str

@@ -86,6 +86,7 @@ export const TOOLS = [
   { slug: 'temperature', name: 'محول الحرارة', desc: 'مئوية ↔ فهرنهايت ↔ كلفن', category: 'converters', icon: Waves },
 
   // Dev Tools
+
   { slug: 'qr-generator', name: 'مولّد QR Code', desc: 'نص، رابط، واي فاي، اتصال', category: 'dev', icon: QrCode },
   { slug: 'qr-reader', name: 'قارئ QR Code', desc: 'امسح رمز QR بكاميرا الجوّال مباشرة', category: 'dev', icon: ScanLine },
   { slug: 'password', name: 'مولّد كلمات مرور', desc: 'قوية وعشوائية مع خيارات', category: 'dev', icon: KeyRound },
@@ -119,6 +120,7 @@ export const TOOLS = [
   { slug: 'url-encoder', name: 'ترميز الروابط', desc: 'URL encode / decode', category: 'comm', icon: Link2 },
 
   // Files
+  { slug: 'remove-bg', name: 'إزالة خلفية الصور', desc: 'عزل خلفية الصور بدقة عالية وبسرعة بالذكاء الاصطناعي', category: 'files', icon: FileImage, isNew: true },
   { slug: 'image-to-pdf', name: 'صور إلى PDF', desc: 'دمج عدة صور في ملف PDF', category: 'files', icon: FileText },
   { slug: 'image-format', name: 'تحويل صيغ الصور', desc: 'PNG ↔ JPG ↔ WebP', category: 'files', icon: FileImage },
   { slug: 'image-compress', name: 'ضغط الصور', desc: 'تقليل حجم الصور دون فقد جودة كبير', category: 'files', icon: ImageDown },
@@ -139,6 +141,7 @@ export const TOOLS = [
   { slug: 'world-clock', name: 'الساعة العالمية', desc: 'أوقات عدة مدن معاً', category: 'misc', icon: Globe },
   { slug: 'stopwatch', name: 'ساعة إيقاف', desc: 'Stopwatch مع Laps', category: 'misc', icon: Timer },
   { slug: 'todo', name: 'قائمة المهام', desc: 'مهام اليوم مع الأولوية', category: 'misc', icon: ClipboardList },
+  { slug: 'gamepad-tester', name: 'فحص يد التحكم', desc: 'فحص استجابة أزرار يد التحكم وعصا الأنالوج بشكل حي ومباشر', category: 'fun', icon: Gamepad2 },
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.slug, t]));

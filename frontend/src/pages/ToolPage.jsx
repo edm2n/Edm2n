@@ -1,7 +1,9 @@
+import UniversalWidget from '../tools/UniversalWidget';
+import GamepadTester from '../tools/GamepadTester';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { ToolShell } from '../lib/ui';
-import { TOOL_MAP } from '../lib/toolsRegistry';
+import { TOOL_MAP, TOOLS } from '../lib/toolsRegistry';
 
 import * as F from '../tools/finance';
 import * as I from '../tools/islamic';
@@ -9,9 +11,11 @@ import * as H from '../tools/health_edu';
 import * as D from '../tools/dev_fun_misc';
 import * as AI from '../tools/ai_tools';
 import { QRReader } from '../tools/qr_reader';
+import RemoveBg from '../tools/RemoveBg';
 
 const MAP = {
   // finance
+  'gamepad-tester': GamepadTester,
   'loan-by-salary': F.LoanBySalary,
   'loan-calculator': F.LoanCalculator,
   'zakat': F.Zakat,
@@ -94,6 +98,7 @@ const MAP = {
   'image-format': D.ImageFormat,
   'image-compress': D.ImageCompress,
   'merge-images': D.MergeImages,
+  'remove-bg': RemoveBg,
   'file-converters-list': D.FileConvertersList,
   // text
   'word-count': D.WordCount,
@@ -112,19 +117,34 @@ const MAP = {
 
 export default function ToolPage() {
   const { slug } = useParams();
-  const tool = TOOL_MAP[slug];
+  
+  // 1️⃣ إيجاد الأداة مباشرة من مصفوفة TOOLS لتجنب أي مشاكل في التحويل
+  const tool = TOOL_MAP?.[slug] || TOOLS.find(t => t.slug === slug);
   const Component = MAP[slug];
-  if (!tool || !Component) {
+
+  if (!tool) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+      <div className="mx-auto max-w-2xl px-4 py-20 text-center text-white">
         <h2 className="text-2xl font-bold mb-2">الأداة غير موجودة</h2>
         <a href="/" className="text-[#D4AF37] hover:underline">العودة إلى الرئيسية</a>
       </div>
     );
   }
+
+  // 2️⃣ توحيد المسميات لكي يفهمها ToolShell (سواء كانت name أو title)
+  const formattedTool = {
+    ...tool,
+    title: tool.title || tool.name,
+    description: tool.description || tool.desc,
+  };
+
   return (
-    <ToolShell tool={tool}>
-      <Component />
+    <ToolShell tool={formattedTool}>
+      {Component ? (
+        <Component />
+      ) : (
+        <UniversalWidget apiUrl={tool?.apiUrl} slug={slug} />
+      )}
     </ToolShell>
   );
 }
