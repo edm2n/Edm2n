@@ -233,6 +233,18 @@ async def remove_background_api(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة الصورة: {str(e)}")
 #نهاية صفحة تفريغ الصوره
 
+@api_router.get("/prayer-times")
+async def prayer_times(city: str = "Riyadh", country: str = "SA", method: int = 4):
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as hc:
+            r = await hc.get("https://api.aladhan.com/v1/timingsByCity",
+                             params={"city": city, "country": country, "method": method})
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Prayer API error: {e}")
+
+
 @api_router.get("/currency")
 async def currency_rates(base: str = "sar"):
     base = base.lower()

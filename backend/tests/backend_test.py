@@ -23,9 +23,8 @@ assert BASE_URL, "REACT_APP_BACKEND_URL must be set"
 API = f"{BASE_URL}/api"
 
 ADMIN_USERNAME = "admin"
-# NOTE: /app/memory/test_credentials.md documents Matar@2026, but backend/.env
-# currently has ADMIN_PASSWORD="Matar@2025" — using the actual .env value so
-# tests reflect real behavior. Discrepancy flagged in test report.
+# Admin password reconciled in iteration 7 — .env has Matar@2025 and
+# /app/memory/test_credentials.md now documents the same.
 ADMIN_PASSWORD = "Matar@2025"
 
 
@@ -85,12 +84,20 @@ class TestContact:
 
 # ---------- Prayer / Currency / Gold ----------
 class TestExternal:
-    @pytest.mark.skip(reason="REGRESSION: /api/prayer-times endpoint removed from server.py in iteration 6 — flagged to main agent")
     def test_prayer_default_riyadh(self, client):
         r = client.get(f"{API}/prayer-times", timeout=20)
         assert r.status_code == 200
         timings = r.json()["data"].get("timings")
         assert timings and "Fajr" in timings
+        # All 5 prayer keys must be present
+        for k in ("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"):
+            assert k in timings, f"missing timing: {k}"
+
+    def test_prayer_riyadh_sa_explicit(self, client):
+        r = client.get(f"{API}/prayer-times", params={"city": "Riyadh", "country": "SA"}, timeout=20)
+        assert r.status_code == 200
+        timings = r.json()["data"].get("timings")
+        assert timings and all(k in timings for k in ("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"))
 
     def test_currency_default_sar(self, client):
         r = client.get(f"{API}/currency", timeout=20)

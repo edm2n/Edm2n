@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 7 retest after fixes from iteration 5/6. Full green pass: 44/44 tests. Un-skipped test_prayer_default_riyadh and added a second prayer-times test (explicit city=Riyadh&country=SA) — both return 200 with Fajr/Dhuhr/Asr/Maghrib/Isha. Admin login now works with Matar@2025 (env value matches docs). All 9 sitemap/robots tests still pass. All previously-passing endpoints (contact, currency, gold, ai-bio, tashkeel, stats/tracking, config, pages CRUD, tool overrides, smart-fetch) continue to pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/sitemap.xml (static)", "issue": "Static /app/frontend/public/sitemap.xml lists BOTH https://edm2n.com/api/sitemap.xml AND https://utility-zone-3.emergent.host/api/sitemap.xml as sitemap-index children. The current preview host is utility-zone-3.preview.emergentagent.com (note '.preview.emergentagent.com' vs '.emergent.host'), so on the preview URL neither <loc> resolves to the same host serving the sitemap-index. Not blocking (crawlers still discover URLs via /api/sitemap.xml directly + /robots.txt lists dynamic sitemap with request host), but the static sitemap-index is effectively a no-op on the preview URL and only correct on production edm2n.com."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Static frontend /sitemap.xml <sitemapindex> hardcodes edm2n.com + utility-zone-3.emergent.host. Preview URL is utility-zone-3.preview.emergentagent.com — a different subdomain. Consider dropping the static sitemap-index and routing /sitemap.xml → /api/sitemap.xml, OR generating the sitemap-index dynamically from the backend using the request host."
+  ],
+  "critical_code_review_comments": [
+    "server.py L236 prayer_times: correctly restored as an httpx proxy to api.aladhan.com/v1/timingsByCity with default city=Riyadh, country=SA, method=4. Follows same pattern as /api/currency + /api/gold-price. Good.",
+    "backend/.env ADMIN_PASSWORD='Matar@2025' now matches /app/memory/test_credentials.md — reconciled.",
+    "Dynamic /api/sitemap.xml + /api/robots.txt continue to build absolute URLs from X-Forwarded-Proto/Host with sane fallbacks. Cache-Control: public, max-age=3600 is reasonable.",
+    "Static /app/frontend/public/sitemap.xml lists both edm2n.com and utility-zone-3.emergent.host. The utility-zone-3.emergent.host host does NOT match the preview URL (utility-zone-3.preview.emergentagent.com) — sitemap-index won't chain correctly on preview. Since /api/sitemap.xml is the authoritative dynamic source and is discoverable via /robots.txt (which uses request host), this is a minor SEO edge case, not a functional bug.",
+    "server.py: /api/remove-bg endpoint still present with hardcoded default API key — still recommend removing or gating behind env-var check (carry-over from iteration 5)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (un-skipped test_prayer_default_riyadh; added test_prayer_riyadh_sa_explicit; updated credentials comment to reflect reconciliation)"
+  ],
+  "success_rate": {"backend": "44/44 (100%)", "frontend": "not tested (backend-only iteration)"},
+  "test_credentials": "admin / Matar@2025 (working; matches both backend/.env and /app/memory/test_credentials.md)",
+  "seed_data_creation": "TestSitemapRobots.test_api_sitemap_includes_published_pages creates one temporary published page then deletes it. TestAdminPages + TestSmartFetch tests also self-cleanup. Negligible test data left behind.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend suite is now 44 tests, all pass. Prayer-times restored + verified with default and explicit params. Admin password fully reconciled at Matar@2025. Static sitemap-index still hardcodes wrong preview host (utility-zone-3.emergent.host vs utility-zone-3.preview.emergentagent.com) — flagged but not blocking. All sitemap/robots (both static + dynamic) tests pass on the live preview URL.",
+  "rca of the issue": "N/A — all previously flagged issues are fixed. Prayer-times endpoint was re-added at server.py L236-... as an httpx proxy. Admin password mismatch resolved by user setting .env to Matar@2025 and updating test_credentials.md."
+}
