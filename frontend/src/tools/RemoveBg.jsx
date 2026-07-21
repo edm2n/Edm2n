@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const API_KEY = "Awmp2DCjJgHCJr8cuJpCR1ri";
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function RemoveBg() {
   const [originalImage, setOriginalImage] = useState(null);
@@ -27,21 +27,17 @@ export function RemoveBg() {
     setError(null);
 
     const formData = new FormData();
-    formData.append('image_file', file);
-    formData.append('size', 'auto');
+    formData.append('image', file);
 
     try {
-      const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+      const response = await fetch(`${API}/remove-bg`, {
         method: 'POST',
-        headers: {
-          'X-Api-Key': API_KEY,
-        },
         body: formData,
       });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.errors?.[0]?.title || 'فشلت معالجة الصورة');
+        throw new Error(errData.detail || 'فشلت معالجة الصورة');
       }
 
       const blob = await response.blob();

@@ -7,11 +7,8 @@ from pathlib import Path
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
-import pyttsx3
-import tempfile
 import httpx
 import jwt
-import requests
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, UploadFile, File
 from fastapi.responses import Response, PlainTextResponse
 from dotenv import load_dotenv
@@ -20,7 +17,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 from gtts import gTTS
-import edge_tts
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -34,7 +30,7 @@ ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Matar@2026')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
-REMOVE_BG_API_KEY = os.environ.get("REMOVE_BG_API_KEY", "Awmp2DCjJgHCJr8cuJpCR1ri")
+REMOVE_BG_API_KEY = os.environ.get("REMOVE_BG_API_KEY", "")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -207,9 +203,11 @@ async def create_contact(payload: ContactCreate):
     return obj
 
 @api_router.post("/remove-bg")
-async def remove_background_api(file: UploadFile = File(...)):
+async def remove_background_api(image: UploadFile = File(...)):
+    if not REMOVE_BG_API_KEY:
+        raise HTTPException(status_code=500, detail="خدمة إزالة الخلفية غير مفعّلة")
     try:
-        input_image = await file.read()
+        input_image = await image.read()
         async with httpx.AsyncClient(timeout=20.0) as client_http:
             response = await client_http.post(
                 "https://api.remove.bg/v1.0/removebg",
@@ -219,9 +217,10 @@ async def remove_background_api(file: UploadFile = File(...)):
             )
             if response.status_code == 200:
                 return Response(content=response.content, media_type="image/png")
-            else:
-                logger.error(f"Remove.bg API Error: {response.text}")
-                raise HTTPException(status_code=response.status_code, detail="فشلت المعالجة من خادم Remove.bg")
+            logger.error(f"Remove.bg API Error {response.status_code}: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail="فشلت المعالجة من خادم Remove.bg")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in remove-bg: {str(e)}")
         raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة الصورة: {str(e)}")
@@ -392,9 +391,6 @@ async def ai_tashkeel(req: TashkeelRequest):
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
 
 # ==================== TTS ENDPOINT ====================
-class TTSRequest(BaseModel):
-    text: str
-
 @api_router.post("/tts")
 async def text_to_speech_api(data: TTSRequest):
     try:
