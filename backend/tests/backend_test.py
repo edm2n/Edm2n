@@ -59,7 +59,74 @@ class TestHealth:
         assert r.status_code == 200
         data = r.json()
         assert data.get("message") == "Dalil Matar API"
-        assert "version" in data
+        # Iteration 7: version bumped to 1.1
+        assert data.get("version") == "1.1", f"expected version 1.1, got {data.get('version')}"
+
+
+# ---------- TTS (iteration 7 — gTTS Arabic) ----------
+class TestTTS:
+    def test_tts_arabic_returns_audio_mpeg(self, client):
+        r = client.post(f"{API}/tts", json={"text": "مرحبا"}, timeout=30)
+        assert r.status_code == 200, f"tts failed: {r.status_code} {r.text[:200]}"
+        ct = r.headers.get("content-type", "").lower()
+        assert "audio/mpeg" in ct, f"expected audio/mpeg, got: {ct}"
+        # MP3 files begin with either ID3 tag or MPEG frame sync (0xFFFB / 0xFFF3 / 0xFFF2)
+        assert len(r.content) > 100, f"audio content too small: {len(r.content)} bytes"
+        magic = r.content[:3]
+        assert magic == b"ID3" or (r.content[0] == 0xFF and (r.content[1] & 0xE0) == 0xE0), \
+            f"content does not look like MP3: first bytes = {r.content[:4].hex()}"
+
+    def test_tts_empty_text_returns_400_arabic(self, client):
+        r = client.post(f"{API}/tts", json={"text": ""}, timeout=15)
+        assert r.status_code == 400, f"expected 400, got {r.status_code}: {r.text[:200]}"
+        data = r.json()
+        assert "detail" in data
+        # Arabic error: 'النص مطلوب'
+        assert any("\u0600" <= ch <= "\u06FF" for ch in data["detail"]), \
+            f"expected Arabic detail, got: {data['detail']}"
+        assert "النص" in data["detail"] or "مطلوب" in data["detail"], \
+            f"expected 'النص مطلوب' Arabic error, got: {data['detail']}"
+
+    def test_tts_whitespace_only_returns_400(self, client):
+        r = client.post(f"{API}/tts", json={"text": "   "}, timeout=15)
+        assert r.status_code == 400, f"whitespace-only should 400, got {r.status_code}"
+
+
+# ---------- Remove BG (iteration 7 — param renamed from 'file' to 'image') ----------
+class TestRemoveBg:
+    def _tiny_png(self):
+        # Minimal 1x1 PNG bytes
+        return (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+                b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0"
+                b"\x00\x00\x00\x03\x00\x01\x5b\x00\x00\x00\x00IEND\xaeB`\x82")
+
+    def test_remove_bg_accepts_image_param(self):
+        # New param name must be 'image' (not 'file'). Since REMOVE_BG_API_KEY is
+        # not configured in preview .env, we expect a 500 with Arabic error message.
+        # NOTE: Do NOT use the session with Content-Type: application/json — we're
+        # sending multipart. Use a fresh requests session.
+        import requests as _rq
+        png = self._tiny_png()
+        r = _rq.post(f"{API}/remove-bg", files={"image": ("test.png", png, "image/png")}, timeout=30)
+        # Two acceptable outcomes:
+        #  (a) REMOVE_BG_API_KEY missing → 500 with Arabic 'خدمة إزالة الخلفية غير مفعّلة'
+        #  (b) REMOVE_BG_API_KEY present → 200 (unlikely in preview) or upstream error
+        # Either way, the param name 'image' MUST be accepted (no 422).
+        assert r.status_code != 422, f"unexpected 422 — 'image' param not accepted: {r.text[:200]}"
+        if r.status_code == 500:
+            # Confirm the Arabic gate error
+            data = r.json()
+            assert "detail" in data
+            assert any("\u0600" <= ch <= "\u06FF" for ch in data["detail"]), \
+                f"expected Arabic detail, got: {data['detail']}"
+
+    def test_remove_bg_rejects_old_file_param(self):
+        # Old param 'file' should now be rejected (422 — missing required 'image')
+        import requests as _rq
+        png = self._tiny_png()
+        r = _rq.post(f"{API}/remove-bg", files={"file": ("test.png", png, "image/png")}, timeout=15)
+        assert r.status_code == 422, \
+            f"old 'file' param should be rejected with 422, got {r.status_code}: {r.text[:200]}"
 
 
 # ---------- Contact CRUD ----------

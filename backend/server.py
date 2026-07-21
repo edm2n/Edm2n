@@ -409,6 +409,8 @@ async def text_to_speech_api(data: TTSRequest):
 
         return Response(content=audio_io.read(), media_type="audio/mpeg")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"TTS Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
