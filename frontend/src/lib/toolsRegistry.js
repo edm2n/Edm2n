@@ -1,5 +1,6 @@
 // Central registry of all tools with metadata
 // Categories: finance, islamic, health, education, converters, dev, fun, cars, comm, files, text, misc
+import DamanCalculator from '../tools/DamanCalculator';
 import {
   Wallet, Calendar, Percent, CalendarDays, Moon, Bot, MessageCircle, FileSymlink,
   Scale, Coins, DollarSign, Baby, Heart, Activity, GraduationCap, Ruler,
@@ -32,6 +33,7 @@ export const CATEGORIES = {
 // slug, name, description, category, icon
 export const TOOLS = [
   // Finance
+  { slug: "daman-calculator", name: "حاسبة الضمان المطور", desc: "احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة", category: 'finance', icon: 'Calculator' },
   { slug: 'loan-by-salary', name: 'كم تمويل يطلع لي؟', desc: 'احسب أقصى تمويل بحسب راتبك ونسبة الاستقطاع', category: 'finance', icon: Wallet },
   { slug: 'loan-calculator', name: 'حاسبة القسط الشهري', desc: 'قسط التمويل الشهري + إجمالي الفوائد', category: 'finance', icon: Landmark },
   { slug: 'zakat', name: 'حاسبة الزكاة', desc: 'زكاة المال والذهب والفضة (2.5%)', category: 'finance', icon: HandHelping },
@@ -128,6 +130,7 @@ export const TOOLS = [
   { slug: 'file-converters-list', name: 'محولات صيغ الملفات', desc: 'روابط سريعة لمحولات PDF/Word/Excel', category: 'files', icon: FileSymlink },
 
   // Text
+  { slug: 'text-to-speech', name: 'تحويل النص إلى كلام', desc: 'تحويل النصوص إلى صوت مسموع مع التحكم بالسرعة ونوع الصوت', category: 'text', icon: Feather },
   { slug: 'word-count', name: 'عدّاد الكلمات', desc: 'كلمات، حروف، أسطر، وقت القراءة', category: 'text', icon: FileText },
   { slug: 'text-case', name: 'تحويل حالة النص', desc: 'كبير/صغير/عكس/إزالة تشكيل', category: 'text', icon: Type },
   { slug: 'kb-flip', name: 'تحويل لوحة المفاتيح', desc: '"hbf khf" → "لا حول"', category: 'text', icon: Repeat },

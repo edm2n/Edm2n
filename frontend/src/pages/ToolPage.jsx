@@ -1,9 +1,10 @@
 import UniversalWidget from '../tools/UniversalWidget';
 import GamepadTester from '../tools/GamepadTester';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ToolShell } from '../lib/ui';
 import { TOOL_MAP, TOOLS } from '../lib/toolsRegistry';
+import DamanCalculator from '../tools/DamanCalculator';
 
 import * as F from '../tools/finance';
 import * as I from '../tools/islamic';
@@ -12,9 +13,11 @@ import * as D from '../tools/dev_fun_misc';
 import * as AI from '../tools/ai_tools';
 import { QRReader } from '../tools/qr_reader';
 import RemoveBg from '../tools/RemoveBg';
+import TextToSpeech from '../tools/TextToSpeech';
 
 const MAP = {
   // finance
+  'daman-calculator': DamanCalculator,
   'gamepad-tester': GamepadTester,
   'loan-by-salary': F.LoanBySalary,
   'loan-calculator': F.LoanCalculator,
@@ -101,11 +104,13 @@ const MAP = {
   'remove-bg': RemoveBg,
   'file-converters-list': D.FileConvertersList,
   // text
+  'text-to-speech': TextToSpeech,
   'word-count': D.WordCount,
   'text-case': D.TextCase,
   'kb-flip': D.KbFlip,
   'diacritics': D.Diacritics,
   // misc
+  
   'ai-bio': AI.AiBio,
   'ai-sites': D.AiSites,
   'countdown': D.Countdown,
@@ -118,9 +123,23 @@ const MAP = {
 export default function ToolPage() {
   const { slug } = useParams();
   
-  // 1️⃣ إيجاد الأداة مباشرة من مصفوفة TOOLS لتجنب أي مشاكل في التحويل
   const tool = TOOL_MAP?.[slug] || TOOLS.find(t => t.slug === slug);
   const Component = MAP[slug];
+
+  const formattedTool = tool ? {
+    ...tool,
+    title: tool.title || tool.name,
+    description: tool.description || tool.desc,
+  } : null;
+
+  // 🔹 تحديث عنوان التبويب في المتصفح تلقائياً
+  useEffect(() => {
+    if (formattedTool?.title) {
+      document.title = `${formattedTool.title} - دليل مطر الإلكتروني`;
+    } else {
+      document.title = 'دليل مطر الإلكتروني';
+    }
+  }, [formattedTool]);
 
   if (!tool) {
     return (
@@ -130,13 +149,6 @@ export default function ToolPage() {
       </div>
     );
   }
-
-  // 2️⃣ توحيد المسميات لكي يفهمها ToolShell (سواء كانت name أو title)
-  const formattedTool = {
-    ...tool,
-    title: tool.title || tool.name,
-    description: tool.description || tool.desc,
-  };
 
   return (
     <ToolShell tool={formattedTool}>
