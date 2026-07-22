@@ -1,3 +1,4 @@
+import RemoveBg from './tools/RemoveBg';
 import { useEffect, useState } from 'react';
 import '@/index.css';
 import axios from 'axios';
@@ -49,6 +50,8 @@ function AppShell() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home onOpenSearch={() => setSearchOpen(true)} siteConfig={siteConfig} toolOverrides={toolOverrides} />} />
+          <Route path="/tools/remove-bg" element={<RemoveBg />} />
+          <Route path="/tools/:slug" element={<ToolPage />} />
           <Route path="/tool/:slug" element={<ToolPage />} />
           <Route path="/p/:slug" element={<CustomPage />} />
           <Route path="/about" element={<About />} />

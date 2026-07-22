@@ -11,13 +11,13 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Preset adhan/takbir voices - curated free public MP3s
 const ADHAN_PRESETS = [
-  { id: 'afasy',    label: 'مشاري العفاسي',     url: 'https://www.islamcan.com/audio/adhan/azan2.mp3' },
-  { id: 'minshawi', label: 'المنشاوي',          url: 'https://www.islamcan.com/audio/adhan/azan10.mp3' },
+  { id: 'afasy',    label: 'مشاري العفاسي',     url: 'https://media.assabile.com/assabile/adhan_3435370/e9ab8052fdb8.mp3' },
+  { id: 'minshawi', label: 'رابح بن دراح',       url: 'https://media.assabile.com/assabile/adhan_3435370/0bf83c80b583.mp3' },
   { id: 'sudais',   label: 'عبدالرحمن السديس',   url: 'https://www.islamcan.com/audio/adhan/azan13.mp3' },
   { id: 'basit',    label: 'عبدالباسط',         url: 'https://www.islamcan.com/audio/adhan/azan4.mp3' },
   { id: 'mekkah',   label: 'أذان مكة المكرمة',   url: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
   { id: 'madina',   label: 'أذان المدينة',       url: 'https://www.islamcan.com/audio/adhan/azan8.mp3' },
-  { id: 'takbir',   label: 'التكبير (العيد)',    url: 'https://www.islamcan.com/audio/takbeer/takbeer1.mp3' },
+  { id: 'takbir',   label: 'التكبير (العيد)',    url: 'https://media.assabile.com/assabile/adhan_3435370/b22e0b06946e.mp3' },
   { id: 'custom',   label: 'رابط مخصّص...',      url: '' },
 ];
 const DEFAULT_ADHAN = ADHAN_PRESETS[0].url;
@@ -206,7 +206,7 @@ export function PrayerTimes() {
         )}
 
         <div className="flex gap-2 flex-wrap">
-          <Button testid="pt-test-adhan" variant="ghost" onClick={testAdhan}><Volume2 className="h-4 w-4" /> جرّب الصوت</Button>
+
         </div>
 
         {nextPrayer && (

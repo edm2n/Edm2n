@@ -1,5 +1,6 @@
 // Central registry of all tools with metadata
 // Categories: finance, islamic, health, education, converters, dev, fun, cars, comm, files, text, misc
+import DamanCalculator from '../tools/DamanCalculator';
 import {
   Wallet, Calendar, Percent, CalendarDays, Moon, Bot, MessageCircle, FileSymlink,
   Scale, Coins, DollarSign, Baby, Heart, Activity, GraduationCap, Ruler,
@@ -32,6 +33,7 @@ export const CATEGORIES = {
 // slug, name, description, category, icon
 export const TOOLS = [
   // Finance
+  { slug: "daman-calculator", name: "حاسبة الضمان المطور", desc: "احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة", category: 'finance', icon: 'Calculator' },
   { slug: 'loan-by-salary', name: 'كم تمويل يطلع لي؟', desc: 'احسب أقصى تمويل بحسب راتبك ونسبة الاستقطاع', category: 'finance', icon: Wallet },
   { slug: 'loan-calculator', name: 'حاسبة القسط الشهري', desc: 'قسط التمويل الشهري + إجمالي الفوائد', category: 'finance', icon: Landmark },
   { slug: 'zakat', name: 'حاسبة الزكاة', desc: 'زكاة المال والذهب والفضة (2.5%)', category: 'finance', icon: HandHelping },
@@ -86,6 +88,7 @@ export const TOOLS = [
   { slug: 'temperature', name: 'محول الحرارة', desc: 'مئوية ↔ فهرنهايت ↔ كلفن', category: 'converters', icon: Waves },
 
   // Dev Tools
+
   { slug: 'qr-generator', name: 'مولّد QR Code', desc: 'نص، رابط، واي فاي، اتصال', category: 'dev', icon: QrCode },
   { slug: 'qr-reader', name: 'قارئ QR Code', desc: 'امسح رمز QR بكاميرا الجوّال مباشرة', category: 'dev', icon: ScanLine },
   { slug: 'password', name: 'مولّد كلمات مرور', desc: 'قوية وعشوائية مع خيارات', category: 'dev', icon: KeyRound },
@@ -119,6 +122,7 @@ export const TOOLS = [
   { slug: 'url-encoder', name: 'ترميز الروابط', desc: 'URL encode / decode', category: 'comm', icon: Link2 },
 
   // Files
+  { slug: 'remove-bg', name: 'إزالة خلفية الصور', desc: 'عزل خلفية الصور بدقة عالية وبسرعة بالذكاء الاصطناعي', category: 'files', icon: FileImage, isNew: true },
   { slug: 'image-to-pdf', name: 'صور إلى PDF', desc: 'دمج عدة صور في ملف PDF', category: 'files', icon: FileText },
   { slug: 'image-format', name: 'تحويل صيغ الصور', desc: 'PNG ↔ JPG ↔ WebP', category: 'files', icon: FileImage },
   { slug: 'image-compress', name: 'ضغط الصور', desc: 'تقليل حجم الصور دون فقد جودة كبير', category: 'files', icon: ImageDown },
@@ -126,6 +130,7 @@ export const TOOLS = [
   { slug: 'file-converters-list', name: 'محولات صيغ الملفات', desc: 'روابط سريعة لمحولات PDF/Word/Excel', category: 'files', icon: FileSymlink },
 
   // Text
+  { slug: 'text-to-speech', name: 'تحويل النص إلى كلام', desc: 'تحويل النصوص إلى صوت مسموع مع التحكم بالسرعة ونوع الصوت', category: 'text', icon: Feather },
   { slug: 'word-count', name: 'عدّاد الكلمات', desc: 'كلمات، حروف، أسطر، وقت القراءة', category: 'text', icon: FileText },
   { slug: 'text-case', name: 'تحويل حالة النص', desc: 'كبير/صغير/عكس/إزالة تشكيل', category: 'text', icon: Type },
   { slug: 'kb-flip', name: 'تحويل لوحة المفاتيح', desc: '"hbf khf" → "لا حول"', category: 'text', icon: Repeat },
@@ -139,6 +144,7 @@ export const TOOLS = [
   { slug: 'world-clock', name: 'الساعة العالمية', desc: 'أوقات عدة مدن معاً', category: 'misc', icon: Globe },
   { slug: 'stopwatch', name: 'ساعة إيقاف', desc: 'Stopwatch مع Laps', category: 'misc', icon: Timer },
   { slug: 'todo', name: 'قائمة المهام', desc: 'مهام اليوم مع الأولوية', category: 'misc', icon: ClipboardList },
+  { slug: 'gamepad-tester', name: 'فحص يد التحكم', desc: 'فحص استجابة أزرار يد التحكم وعصا الأنالوج بشكل حي ومباشر', category: 'fun', icon: Gamepad2 },
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.slug, t]));

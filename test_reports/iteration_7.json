@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 7 deployment-readiness verification: 49/49 backend tests pass. Added 5 new tests: 3 for /api/tts (Arabic MP3 generation, empty-text 400, whitespace-only 400) and 2 for /api/remove-bg (accepts new 'image' param, rejects legacy 'file' param with 422). Verified root endpoint returns version 1.1 exactly. All 44 pre-existing tests remain green (health, contact, prayer-times, currency, gold, config, pages CRUD, admin auth, tool overrides, tracking/stats, AI bio/tashkeel, smart-fetch, sitemap+robots). Fixed one code bug found during testing (see rca).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/tts", "issue": "FIXED — bare 'except Exception' was swallowing HTTPException(400) 'النص مطلوب' and re-raising as 500. Added 'except HTTPException: raise' before generic handler. Now returns 400 as specified."},
+      {"endpoint": "/api/remove-bg", "issue": "Verified: without REMOVE_BG_API_KEY (not set in .env), returns 500 with Arabic detail 'خدمة إزالة الخلفية غير مفعّلة' as expected. Upstream Remove.bg not exercised (paid API)."},
+      {"endpoint": "/sitemap.xml (static frontend)", "issue": "Carry-over from iter 6: static /app/frontend/public/sitemap.xml still lists edm2n.com + utility-zone-3.emergent.host hosts, neither of which matches preview URL (utility-zone-3.preview.emergentagent.com). Sitemap-index is a no-op on preview. Not blocking — /api/sitemap.xml uses request Host and is authoritative."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Static frontend /sitemap.xml sitemap-index hardcodes edm2n.com + utility-zone-3.emergent.host — consider dropping static file and 301→/api/sitemap.xml, or generating dynamically from backend using request Host. (Carried from iteration 6.)",
+    "OPTIONAL: server.py L25 still has a hardcoded ELEVENLABS_API_KEY default literal; L26 also hardcodes DEFAULT_VOICE_ID default. Since TTS switched to gTTS (no external key needed), ELEVENLABS_API_KEY constant is now dead — safe to remove.",
+    "OPTIONAL: server.py L649 uses deprecated @app.on_event('shutdown'). FastAPI recommends the lifespan context manager instead."
+  ],
+  "critical_code_review_comments": [
+    "server.py L394-414 /api/tts: FIXED during this iteration. Original code had bare 'except Exception' catching the intentional HTTPException(400) — added HTTPException re-raise. Verified via 2 new failing→passing tests.",
+    "server.py L205-226 /api/remove-bg: Param renamed from 'file' to 'image' — verified accepted (no 422). Correctly gates on REMOVE_BG_API_KEY env var and returns Arabic 500 error when missing.",
+    "server.py L18-19 imports pruned: emergentintegrations + gTTS only — clean. No dead pyttsx3/edge_tts/requests imports remaining.",
+    "server.py L25 ELEVENLABS_API_KEY is dead code post-TTS switch to gTTS — safe to delete (also has a hardcoded secret default, security smell).",
+    "server.py L649 @app.on_event('shutdown') is deprecated — migrate to lifespan handler (non-blocking).",
+    "backend/.env: REMOVE_BG_API_KEY intentionally absent — endpoint correctly gates with 500 + Arabic message. Matches the deployment-readiness contract.",
+    "Root /api/ endpoint correctly returns {'message':'Dalil Matar API','version':'1.1'} — matches expected v1.1 bump."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (added 'except HTTPException: raise' guard in /api/tts to preserve 400 status code)",
+    "/app/backend/tests/backend_test.py (added TestTTS class with 3 tests; added TestRemoveBg class with 2 tests; strengthened test_root to assert version=='1.1')"
+  ],
+  "success_rate": {"backend": "49/49 (100%)", "frontend": "not tested (backend-only iteration)"},
+  "test_credentials": "admin / Matar@2025 (working; matches backend/.env + /app/memory/test_credentials.md)",
+  "seed_data_creation": "All test-created data (contacts prefixed TEST_, pages with test-* slugs, tool_views with test-track-*, config G-TEST123) is either self-cleaned in-test or negligible.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "49 backend tests, all green. Coverage now includes: TTS (gTTS Arabic MP3, empty/whitespace validation) and Remove.bg (param rename image/file, missing-key gate). Deployment-readiness verified. If a subsequent iteration re-enables ELEVENLABS or removes gTTS, the TTS tests may need adjusting (magic-byte check assumes MP3). If REMOVE_BG_API_KEY is later provisioned, TestRemoveBg.test_remove_bg_accepts_image_param will still pass (branch accepts either 500 gate or 200/upstream error).",
+  "rca of the issue": "TTS empty-text bug RCA: /api/tts intentionally raised HTTPException(400, 'النص مطلوب') for empty input, but the enclosing 'except Exception as e' swallowed it and re-raised as HTTPException(500, str(e)) — so client saw '500: 400: النص مطلوب'. Root cause: FastAPI's HTTPException inherits from Exception, so bare Exception handlers must explicitly re-raise HTTPException first. Reproduction: POST /api/tts {'text':''} → observed 500 (expected 400). Mitigation applied: inserted 'except HTTPException: raise' immediately before the generic handler. Verified via test_tts_empty_text_returns_400_arabic + test_tts_whitespace_only_returns_400 (both now pass). This pattern is already correctly used in /api/remove-bg (L222-223) and /api/admin/smart-fetch (L552-553), confirming the fix follows existing project convention."
+}

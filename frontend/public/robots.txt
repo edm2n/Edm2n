@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/admin/
+
+Sitemap: https://edm2n.com/sitemap.xml
+Sitemap: https://edm2n.com/api/sitemap.xml

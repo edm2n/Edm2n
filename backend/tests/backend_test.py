@@ -23,7 +23,9 @@ assert BASE_URL, "REACT_APP_BACKEND_URL must be set"
 API = f"{BASE_URL}/api"
 
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "Matar@2026"
+# Admin password reconciled in iteration 7 — .env has Matar@2025 and
+# /app/memory/test_credentials.md now documents the same.
+ADMIN_PASSWORD = "Matar@2025"
 
 
 # ---------- Fixtures ----------
@@ -57,7 +59,74 @@ class TestHealth:
         assert r.status_code == 200
         data = r.json()
         assert data.get("message") == "Dalil Matar API"
-        assert "version" in data
+        # Iteration 7: version bumped to 1.1
+        assert data.get("version") == "1.1", f"expected version 1.1, got {data.get('version')}"
+
+
+# ---------- TTS (iteration 7 — gTTS Arabic) ----------
+class TestTTS:
+    def test_tts_arabic_returns_audio_mpeg(self, client):
+        r = client.post(f"{API}/tts", json={"text": "مرحبا"}, timeout=30)
+        assert r.status_code == 200, f"tts failed: {r.status_code} {r.text[:200]}"
+        ct = r.headers.get("content-type", "").lower()
+        assert "audio/mpeg" in ct, f"expected audio/mpeg, got: {ct}"
+        # MP3 files begin with either ID3 tag or MPEG frame sync (0xFFFB / 0xFFF3 / 0xFFF2)
+        assert len(r.content) > 100, f"audio content too small: {len(r.content)} bytes"
+        magic = r.content[:3]
+        assert magic == b"ID3" or (r.content[0] == 0xFF and (r.content[1] & 0xE0) == 0xE0), \
+            f"content does not look like MP3: first bytes = {r.content[:4].hex()}"
+
+    def test_tts_empty_text_returns_400_arabic(self, client):
+        r = client.post(f"{API}/tts", json={"text": ""}, timeout=15)
+        assert r.status_code == 400, f"expected 400, got {r.status_code}: {r.text[:200]}"
+        data = r.json()
+        assert "detail" in data
+        # Arabic error: 'النص مطلوب'
+        assert any("\u0600" <= ch <= "\u06FF" for ch in data["detail"]), \
+            f"expected Arabic detail, got: {data['detail']}"
+        assert "النص" in data["detail"] or "مطلوب" in data["detail"], \
+            f"expected 'النص مطلوب' Arabic error, got: {data['detail']}"
+
+    def test_tts_whitespace_only_returns_400(self, client):
+        r = client.post(f"{API}/tts", json={"text": "   "}, timeout=15)
+        assert r.status_code == 400, f"whitespace-only should 400, got {r.status_code}"
+
+
+# ---------- Remove BG (iteration 7 — param renamed from 'file' to 'image') ----------
+class TestRemoveBg:
+    def _tiny_png(self):
+        # Minimal 1x1 PNG bytes
+        return (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+                b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0"
+                b"\x00\x00\x00\x03\x00\x01\x5b\x00\x00\x00\x00IEND\xaeB`\x82")
+
+    def test_remove_bg_accepts_image_param(self):
+        # New param name must be 'image' (not 'file'). Since REMOVE_BG_API_KEY is
+        # not configured in preview .env, we expect a 500 with Arabic error message.
+        # NOTE: Do NOT use the session with Content-Type: application/json — we're
+        # sending multipart. Use a fresh requests session.
+        import requests as _rq
+        png = self._tiny_png()
+        r = _rq.post(f"{API}/remove-bg", files={"image": ("test.png", png, "image/png")}, timeout=30)
+        # Two acceptable outcomes:
+        #  (a) REMOVE_BG_API_KEY missing → 500 with Arabic 'خدمة إزالة الخلفية غير مفعّلة'
+        #  (b) REMOVE_BG_API_KEY present → 200 (unlikely in preview) or upstream error
+        # Either way, the param name 'image' MUST be accepted (no 422).
+        assert r.status_code != 422, f"unexpected 422 — 'image' param not accepted: {r.text[:200]}"
+        if r.status_code == 500:
+            # Confirm the Arabic gate error
+            data = r.json()
+            assert "detail" in data
+            assert any("\u0600" <= ch <= "\u06FF" for ch in data["detail"]), \
+                f"expected Arabic detail, got: {data['detail']}"
+
+    def test_remove_bg_rejects_old_file_param(self):
+        # Old param 'file' should now be rejected (422 — missing required 'image')
+        import requests as _rq
+        png = self._tiny_png()
+        r = _rq.post(f"{API}/remove-bg", files={"file": ("test.png", png, "image/png")}, timeout=15)
+        assert r.status_code == 422, \
+            f"old 'file' param should be rejected with 422, got {r.status_code}: {r.text[:200]}"
 
 
 # ---------- Contact CRUD ----------
@@ -87,6 +156,15 @@ class TestExternal:
         assert r.status_code == 200
         timings = r.json()["data"].get("timings")
         assert timings and "Fajr" in timings
+        # All 5 prayer keys must be present
+        for k in ("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"):
+            assert k in timings, f"missing timing: {k}"
+
+    def test_prayer_riyadh_sa_explicit(self, client):
+        r = client.get(f"{API}/prayer-times", params={"city": "Riyadh", "country": "SA"}, timeout=20)
+        assert r.status_code == 200
+        timings = r.json()["data"].get("timings")
+        assert timings and all(k in timings for k in ("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"))
 
     def test_currency_default_sar(self, client):
         r = client.get(f"{API}/currency", timeout=20)
@@ -314,15 +392,15 @@ class TestSmartFetch:
         assert r.status_code in (401, 403)
 
     def test_smart_fetch_example_com(self, admin_client):
-        r = admin_client.post(f"{API}/admin/smart-fetch", json={"query": "https://example.com"}, timeout=30)
-        assert r.status_code == 200, f"smart-fetch example.com failed: {r.status_code} {r.text[:400]}"
+        # smart-fetch now expects JSON APIs (rewritten in iteration 6). Use httpbin JSON.
+        r = admin_client.post(f"{API}/admin/smart-fetch", json={"query": "https://httpbin.org/json"}, timeout=30)
+        assert r.status_code == 200, f"smart-fetch failed: {r.status_code} {r.text[:400]}"
         data = r.json()
         # Required keys
         for k in ("slug", "title", "content", "excerpt", "image", "source_url"):
             assert k in data, f"missing key: {k}"
-        assert "Example Domain" in data["title"], f"unexpected title: {data['title']}"
         assert isinstance(data["content"], str) and len(data["content"]) > 20
-        assert data["source_url"].startswith("https://example.com")
+        assert data["source_url"].startswith("https://httpbin.org")
         assert isinstance(data["slug"], str) and len(data["slug"]) > 0
 
     def test_smart_fetch_invalid_url_returns_error_arabic(self, admin_client):
@@ -360,12 +438,12 @@ class TestSmartFetch:
 
     def test_smart_fetch_save_creates_public_page(self, admin_client, client):
         r = admin_client.post(f"{API}/admin/smart-fetch-save",
-                              json={"query": "https://example.com", "publish": True}, timeout=30)
+                              json={"query": "https://httpbin.org/json", "publish": True}, timeout=30)
         assert r.status_code == 200, f"smart-fetch-save failed: {r.status_code} {r.text[:400]}"
         page = r.json()
         assert "id" in page and "slug" in page
         assert page["published"] is True
-        assert page["source_url"].startswith("https://example.com")
+        assert page["source_url"].startswith("https://httpbin.org")
         # Public list should now include this page
         r2 = client.get(f"{API}/pages", timeout=15)
         assert r2.status_code == 200
@@ -385,14 +463,133 @@ class TestSmartFetch:
         # cleanup
         admin_client.delete(f"{API}/admin/pages/{page['id']}", timeout=15)
 
+# ---------- Sitemap + Robots (iteration 6) ----------
+class TestSitemapRobots:
+    """/sitemap.xml (static frontend sitemap-index) + /api/sitemap.xml (dynamic backend) + /robots.txt."""
+
+    def test_frontend_static_sitemap_index(self, client):
+        # Frontend serves the static sitemap-index at /sitemap.xml (no /api prefix)
+        r = client.get(f"{BASE_URL}/sitemap.xml", timeout=15)
+        assert r.status_code == 200, f"status={r.status_code}"
+        ct = r.headers.get("content-type", "")
+        assert "xml" in ct.lower(), f"unexpected content-type: {ct}"
+        body = r.text
+        assert "<sitemapindex" in body, "expected <sitemapindex> root"
+        assert "<loc>" in body, "expected at least one <loc>"
+        assert "/api/sitemap.xml" in body, "sitemap-index should point to backend dynamic sitemap"
+
+    def test_frontend_robots_txt(self, client):
+        # Frontend serves robots.txt at /robots.txt
+        r = client.get(f"{BASE_URL}/robots.txt", timeout=15)
+        assert r.status_code == 200, f"status={r.status_code}"
+        ct = r.headers.get("content-type", "")
+        assert "text/plain" in ct.lower(), f"unexpected content-type: {ct}"
+        body = r.text
+        assert "User-agent: *" in body
+        assert "Disallow: /admin" in body
+        assert "Disallow: /api/admin/" in body
+        assert "Sitemap:" in body
+
+    def test_api_sitemap_status_and_content_type(self, client):
+        r = client.get(f"{API}/sitemap.xml", timeout=20)
+        assert r.status_code == 200
+        ct = r.headers.get("content-type", "").lower()
+        assert "application/xml" in ct, f"unexpected content-type: {ct}"
+        assert "charset=utf-8" in ct, f"expected utf-8 charset: {ct}"
+
+    def test_api_sitemap_uses_request_host(self, client):
+        # The dynamic sitemap should use the request Host to build absolute URLs.
+        r = client.get(f"{API}/sitemap.xml", timeout=20)
+        assert r.status_code == 200
+        body = r.text
+        # Base URL derived from REACT_APP_BACKEND_URL should be present in <loc> entries.
+        host = BASE_URL.split("//", 1)[1]
+        assert host in body, f"expected host {host} to appear in sitemap URLs"
+
+    def test_api_sitemap_contains_all_sections(self, client):
+        r = client.get(f"{API}/sitemap.xml", timeout=20)
+        assert r.status_code == 200
+        body = r.text
+        # Root element
+        assert "<urlset" in body and "sitemaps.org/schemas/sitemap/0.9" in body
+        # Static routes
+        for path in ("/about", "/faq", "/privacy", "/terms", "/links"):
+            assert f"<loc>{BASE_URL}{path}</loc>" in body, f"missing static route {path}"
+        # Home
+        assert f"<loc>{BASE_URL}/</loc>" in body, "missing home /"
+        # Tool slugs: pick a few well-known ones
+        for slug in ("zakat", "bmi", "prayer-times", "qr-generator", "ai-bio"):
+            assert f"/tool/{slug}</loc>" in body, f"missing tool slug {slug}"
+        # Each url has lastmod, changefreq, priority
+        assert body.count("<lastmod>") == body.count("<url>")
+        assert body.count("<changefreq>") == body.count("<url>")
+        assert body.count("<priority>") == body.count("<url>")
+
+    def test_api_sitemap_url_count_gte_90(self, client):
+        # Load tool slug count from source
+        with open("/app/backend/tool_slugs.txt", encoding="utf-8") as f:
+            slug_count = sum(1 for line in f if line.strip())
+        r = client.get(f"{API}/sitemap.xml", timeout=20)
+        assert r.status_code == 200
+        url_count = r.text.count("<url>")
+        # 6 static + 87 tools + N published pages -> expect >= 6 + slug_count
+        assert url_count >= 6 + slug_count, f"expected >= {6 + slug_count}, got {url_count}"
+        assert url_count > 90, f"expected > 90 total URLs, got {url_count}"
+
+    def test_api_sitemap_excludes_admin(self, client):
+        r = client.get(f"{API}/sitemap.xml", timeout=20)
+        assert r.status_code == 200
+        # No /admin URLs should appear
+        assert "/admin" not in r.text, "sitemap must not contain any /admin URL"
+
+    def test_api_sitemap_includes_published_pages(self, admin_client, client):
+        # Create a unique published page and verify it's in the sitemap
+        slug = f"test-sitemap-{uuid.uuid4().hex[:6]}"
+        payload = {"slug": slug, "title": "TEST_sitemap", "content": "TEST", "published": True}
+        r = admin_client.post(f"{API}/admin/pages", json=payload, timeout=15)
+        assert r.status_code == 200
+        page_id = r.json()["id"]
+        try:
+            r2 = client.get(f"{API}/sitemap.xml", timeout=20)
+            assert r2.status_code == 200
+            assert f"/p/{slug}</loc>" in r2.text, "newly published page missing from sitemap"
+
+            # Unpublish (published=false) and confirm it's excluded
+            upd = {**payload, "id": page_id, "published": False}
+            r3 = admin_client.put(f"{API}/admin/pages/{page_id}", json=upd, timeout=15)
+            assert r3.status_code == 200
+            r4 = client.get(f"{API}/sitemap.xml", timeout=20)
+            assert f"/p/{slug}</loc>" not in r4.text, "unpublished page should not be in sitemap"
+        finally:
+            admin_client.delete(f"{API}/admin/pages/{page_id}", timeout=15)
+
+    def test_api_robots_txt_dynamic(self, client):
+        r = client.get(f"{API}/robots.txt", timeout=15)
+        assert r.status_code == 200
+        ct = r.headers.get("content-type", "").lower()
+        assert "text/plain" in ct
+        body = r.text
+        assert "User-agent: *" in body
+        assert "Allow: /" in body
+        assert "Disallow: /admin" in body
+        assert "Disallow: /api/admin/" in body
+        # Both sitemaps should be listed with the request host
+        host = BASE_URL.split("//", 1)[1]
+        assert f"Sitemap: " in body
+        assert f"{host}/sitemap.xml" in body
+        assert f"{host}/api/sitemap.xml" in body
+
+
+# ---------- (moved) old smart-fetch test kept for reference ----------
+class TestSmartFetchDuplicate:
     def test_smart_fetch_save_duplicate_slug_no_crash(self, admin_client, client):
         # Call twice — should not crash; must create unique slug or update
         r1 = admin_client.post(f"{API}/admin/smart-fetch-save",
-                               json={"query": "https://example.com", "publish": True}, timeout=30)
+                               json={"query": "https://httpbin.org/json", "publish": True}, timeout=30)
         assert r1.status_code == 200, r1.text
         p1 = r1.json()
         r2 = admin_client.post(f"{API}/admin/smart-fetch-save",
-                               json={"query": "https://example.com", "publish": True}, timeout=30)
+                               json={"query": "https://httpbin.org/json", "publish": True}, timeout=30)
         assert r2.status_code == 200, f"duplicate call crashed: {r2.status_code} {r2.text[:300]}"
         p2 = r2.json()
         # Either same slug (update-in-place, unlikely per code) OR different slug (n-suffix)

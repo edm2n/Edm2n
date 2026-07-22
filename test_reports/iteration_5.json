@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 6 (SEO sitemap.xml + robots.txt) backend testing complete. Added 9 new tests under TestSitemapRobots — all pass. Both static frontend /sitemap.xml + /robots.txt (served from /app/frontend/public/) and dynamic backend /api/sitemap.xml + /api/robots.txt return 200 with correct content-type. Dynamic sitemap contains 94 <url> entries (6 static + 87 tools + 1 published page), each with loc/lastmod/changefreq/priority, uses request Host header for absolute URLs, and excludes /admin. Regression: 33/34 previously covered endpoints still pass. Two issues surfaced during regression: (1) /api/prayer-times endpoint REMOVED from server.py despite review request listing it under regression — this is a CRITICAL regression; (2) backend/.env ADMIN_PASSWORD='Matar@2025' but /app/memory/test_credentials.md + review request say 'Matar@2026' — docs/env mismatch. Also: smart-fetch was rewritten in iteration 6 to accept ONLY JSON APIs (not HTML pages); iteration-5 tests using example.com now fail — tests updated to use httpbin.org/json.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/prayer-times", "issue": "Endpoint completely removed from /app/backend/server.py — GET returns 404. Review request explicitly lists this under regression endpoints that must still work. Frontend Prayer Times tool + Home widget will be broken. No aladhan.com proxy code left in server.py.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "/api/admin/login", "issue": "ADMIN_PASSWORD in backend/.env is 'Matar@2025' but /app/memory/test_credentials.md, review request, and iteration_4 report all say 'Matar@2026'. Either the .env has a typo or the docs need updating. Tests updated to use Matar@2025 (the actual working value)."},
+      {"endpoint": "/sitemap.xml (static)", "issue": "The static /app/frontend/public/sitemap.xml hardcodes https://edm2n.com/api/sitemap.xml as the <loc> — will not work correctly when deployed on any other domain. Since the dynamic /api/sitemap.xml already builds absolute URLs from request host, consider either (a) serving the sitemap-index dynamically too, or (b) using a relative URL / same-origin path in the static sitemap-index. Currently on preview URL, /sitemap.xml points crawlers to edm2n.com/api/sitemap.xml which won't match the preview host."},
+      {"endpoint": "/robots.txt (static)", "issue": "Same issue — hardcodes https://edm2n.com in Sitemap: entries. Cloudflare also injects its own 'Managed content' block above the site's own content. Not a bug but worth noting."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Restore GET /api/prayer-times endpoint in /app/backend/server.py (aladhan.com proxy). It was removed but review request lists it under regression. Frontend Prayer Times tool depends on it.",
+    "Reconcile admin password: either fix backend/.env ADMIN_PASSWORD to 'Matar@2026' (matching docs) OR update /app/memory/test_credentials.md + related copy to 'Matar@2025'. Current mismatch will confuse next testing agent.",
+    "OPTIONAL: Make /sitemap.xml + /robots.txt served by frontend use dynamic host (not hardcoded edm2n.com). Simplest fix: drop the static /app/frontend/public/sitemap.xml and route /sitemap.xml → /api/sitemap.xml at the ingress level, OR generate the sitemap-index from backend too."
+  ],
+  "critical_code_review_comments": [
+    "server.py L149-184 sitemap_xml: correctly uses X-Forwarded-Proto/Host with fallback — good. Escapes XML entities. Cache-Control: public, max-age=3600 — reasonable. However, changefreq='daily' for home + no ETag/If-Modified-Since support — OK for now.",
+    "server.py L143-146 _base_url_from_request: fallback chain proto/host is correct. Trusts x-forwarded-* headers — fine behind a trusted ingress but could be spoofed if exposed directly. Not exploitable in current setup.",
+    "server.py L164 db.custom_pages.find(...).to_list(1000): 1000-doc cap is fine for now but if custom_pages grows, sitemap will silently truncate. Consider streaming or splitting into multiple sitemaps via <sitemapindex>.",
+    "server.py L136-140 _load_tool_slugs: swallows all exceptions and returns [] on error. If tool_slugs.txt is accidentally deleted, sitemap would silently drop 87 URLs. Consider logging the error.",
+    "server.py L211-233 /api/remove-bg: dead endpoint (per iteration notes) with hardcoded REMOVE_BG_API_KEY default. Should be removed entirely or gate behind env-var check.",
+    "server.py L207-209: Arabic comments left in production code — cosmetic only.",
+    "frontend/public/sitemap.xml + robots.txt hardcode edm2n.com domain — will point crawlers to the wrong host on any other deployment.",
+    "STATIC_ROUTES list (server.py L125-132) is duplicated between backend and frontend routes. If a new page is added to the SPA, developer must remember to add it here too — DRY violation, but low risk given small list."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestSitemapRobots class with 9 tests; updated TestSmartFetch tests to use httpbin.org/json since smart-fetch was rewritten to JSON-only in iteration 6; fixed ADMIN_PASSWORD to match actual .env value; marked test_prayer_default_riyadh as skip with regression reason)"
+  ],
+  "success_rate": {
+    "backend": "42/43 pass (97.7%) — 1 skipped due to /api/prayer-times removal regression; sitemap+robots feature 9/9 (100%)",
+    "frontend": "not tested (backend-only iteration)"
+  },
+  "test_credentials": "admin / Matar@2025 (WORKING — backend/.env value). Docs claim Matar@2026 but that returns 401.",
+  "seed_data_creation": "TestSitemapRobots.test_api_sitemap_includes_published_pages creates 1 temporary published page (test-sitemap-<hex>) then unpublishes+deletes it in same test. Smart-fetch tests using httpbin.org/json may leave 1-2 pages (auto-suffixed slugs) since they don't clean up on the duplicate path — negligible.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend suite is now 43 tests (42 pass + 1 skip). The skip is /api/prayer-times which was removed from server.py this iteration — main agent must restore it. Sitemap+robots endpoints all verified working end-to-end on live preview URL. Dynamic sitemap correctly returns 94 URLs with correct host. Static frontend sitemap-index + robots.txt hardcode edm2n.com — flagged. Admin password in .env is Matar@2025 (not 2026).",
+  "rca of the issue": "Prayer-times regression: server.py has no @api_router.get('/prayer-times') anywhere. Either it was accidentally deleted while editing server.py in iteration 6, or the main agent forgot to re-add it during the smart-fetch rewrite. To restore, add an async httpx proxy to https://api.aladhan.com/v1/timingsByCity with default city=Riyadh, country=SA — same pattern as /api/currency and /api/gold-price. Sitemap+robots feature itself has no bugs — all 9 new tests pass on first run."
+}
