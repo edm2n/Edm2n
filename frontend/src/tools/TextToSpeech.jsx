@@ -1,104 +1,201 @@
-import React, { useState } from 'react';
-import { Volume2, Loader2, Sparkles, Play } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Volume2, Play, Square, ShieldCheck, Sparkles, Sliders, Zap } from 'lucide-react';
 
 export default function TextToSpeechTool() {
-  const [text, setText] = useState("أهلاً بكم مجدداً في البرنامج. سنتحدث اليوم عن كيف يمكن للعادة الصغيرة أن تُحدث تغييرات كبيرة مع مرور الوقت.");
-  const [loading, setLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState(null);
-  const [error, setError] = useState("");
+  const [text, setText] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voices, setVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState('');
+  const [rate, setRate] = useState(1.0);
+  const [pitch, setPitch] = useState(1.0);
 
-  const handleGenerate = async () => {
-    if (!text.trim()) {
-      setError("الرجاء إدخال نص لتحويله");
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+
+    const updateVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      
+      const sortedVoices = availableVoices.sort((a, b) => {
+        const aIsArabic = a.lang.startsWith('ar');
+        const bIsArabic = b.lang.startsWith('ar');
+        if (aIsArabic !== bIsArabic) return bIsArabic - aIsArabic;
+
+        const aIsNatural = a.name.includes('Natural') || a.name.includes('Google') || a.name.includes('Neural') || a.name.includes('Naayf') || a.name.includes('Zina');
+        const bIsNatural = b.name.includes('Natural') || b.name.includes('Google') || b.name.includes('Neural') || b.name.includes('Naayf') || b.name.includes('Zina');
+        return bIsNatural - aIsNatural;
+      });
+
+      setVoices(sortedVoices);
+
+      const bestArabic = sortedVoices.find(v => v.lang.startsWith('ar'));
+
+      if (bestArabic) {
+        setSelectedVoice(bestArabic.name);
+      } else if (sortedVoices.length > 0) {
+        setSelectedVoice(sortedVoices[0].name);
+      }
+    };
+
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+  }, []);
+
+  const handleSpeak = () => {
+    if (!text.trim()) return;
+
+    if (!('speechSynthesis' in window)) {
+      alert('متصفحك لا يدعم خاصية النطق الصوتي.');
       return;
     }
 
-    setLoading(true);
-    setError("");
-    setAudioUrl(null);
+    window.speechSynthesis.cancel();
 
-    try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voice = voices.find(v => v.name === selectedVoice);
+    if (voice) {
+      utterance.voice = voice;
+    }
 
-      if (!response.ok) {
-        throw new Error("فشل توليد الصوت من السيرفر");
-      }
+    utterance.rate = rate;
+    utterance.pitch = pitch;
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-    } catch (err) {
-      setError("حدث خطأ أثناء الاتصال، يرجى المحاولة مرة أخرى.");
-    } finally {
-      setLoading(false);
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleStop = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-slate-900/80 rounded-2xl border border-slate-800 shadow-xl text-right" dir="rtl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 bg-purple-600/20 text-purple-400 rounded-xl">
-          <Volume2 className="w-6 h-6" />
+    <div className="max-w-2xl mx-auto p-6 md:p-8 bg-card border border-border rounded-3xl shadow-2xl text-right transition-colors my-6" dir="rtl">
+      
+      {/* العنوان والشعار */}
+      <div className="text-center mb-6">
+        <div className="inline-flex p-3 bg-primary/10 text-primary rounded-2xl mb-3 shadow-inner">
+          <Volume2 className="w-8 h-8" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-white">تحويل النص إلى صوت طبيعي</h2>
-          <p className="text-sm text-slate-400">استمتع بصوت بشري نقي وعالي الجودة فوراً</p>
+        <h2 className="text-2xl font-black text-foreground mb-1">المحرك الصوتي الذكي</h2>
+        <p className="text-xs text-muted-foreground">حول النصوص إلى كلام طبيعي وبشري مباشرة داخل متصفحك</p>
+        
+        <div className="mt-4 inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-xs text-primary font-bold shadow-sm">
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>آمن تماماً: المعالجة تتم محلياً ولا يتم رفع بياناتك أبداً</span>
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            أدخل النص المراد تحويله:
-          </label>
+      <div className="space-y-5 mb-6">
+        
+        {/* صندوق النص */}
+        <div className="relative">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            rows={5}
-            className="w-full p-4 bg-slate-950/60 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-500 transition-all resize-none"
-            placeholder="اكتب النص هنا..."
-            maxLength={400}
+            placeholder="اكتب أو الصق النص هنا... (نصيحة: ضع علامات الترقيم كالفاصلة والنقطة لضبط النبرة الطبيعية)"
+            className="w-full h-40 p-4 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none shadow-sm transition-all text-sm leading-relaxed"
           />
-          <div className="text-xs text-slate-500 mt-1 text-left">{text.length}/400 حرف</div>
+          <div className="absolute bottom-3 left-3 text-[11px] text-muted-foreground bg-card/80 px-2 py-1 rounded-md border border-border">
+            {text.length} حرف
+          </div>
         </div>
 
-        {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl">
-            {error}
+        {/* إعدادات الصوت والسرعة */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* اختيار الصوت */}
+          <div className="p-4 bg-background/50 border border-border rounded-2xl space-y-2">
+            <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span>الصوت واللهجة المفضلة</span>
+            </label>
+            <select
+              value={selectedVoice}
+              onChange={(e) => setSelectedVoice(e.target.value)}
+              className="w-full p-2.5 bg-background border border-border rounded-xl text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+            >
+              {voices.map((voice) => (
+                <option key={voice.name} value={voice.name}>
+                  {voice.name} ({voice.lang}) {voice.lang.startsWith('ar') ? '⭐ عربي' : ''}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
 
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>جاري توليد الصوت الطبيعي...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-5 h-5" />
-              <span>توليد واستماع الصوت</span>
-            </>
-          )}
-        </button>
-
-        {audioUrl && (
-          <div className="mt-6 p-4 bg-slate-950 border border-purple-500/30 rounded-xl animate-fade-in">
-            <p className="text-sm font-medium text-purple-300 mb-3 flex items-center gap-2">
-              <Play className="w-4 h-4" /> الصوت جاهز الآن بنبرة طبيعية:
-            </p>
-            <audio controls autoPlay src={audioUrl} className="w-full" />
+          {/* أزرار السرعة السريعة */}
+          <div className="p-4 bg-background/50 border border-border rounded-2xl space-y-2">
+            <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span>سرعة القراءة</span>
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[0.8, 1.0, 1.2, 1.5].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setRate(s)}
+                  className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    rate === s 
+                      ? 'bg-primary text-primary-foreground shadow-md scale-105' 
+                      : 'bg-background border border-border text-muted-foreground hover:bg-border/50'
+                  }`}
+                >
+                  {s}x
+                </button>
+              ))}
+            </div>
           </div>
+        </div>
+
+        {/* شريط التحكم في النبرة */}
+        <div className="p-4 bg-background/50 border border-border rounded-2xl space-y-2">
+          <div className="flex justify-between items-center text-xs font-bold text-foreground">
+            <span className="flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-primary" />
+              <span>حدة النبرة الصوتية</span>
+            </span>
+            <span className="text-primary font-mono">{pitch}x</span>
+          </div>
+          <input
+            type="range"
+            min="0.8"
+            max="1.2"
+            step="0.05"
+            value={pitch}
+            onChange={(e) => setPitch(parseFloat(e.target.value))}
+            className="w-full accent-primary cursor-pointer"
+          />
+        </div>
+
+      </div>
+
+      {/* زر التشغيل والإيقاف الرئيسي */}
+      <div>
+        {!isSpeaking ? (
+          <button
+            onClick={handleSpeak}
+            className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-base rounded-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xl hover:scale-[1.01]"
+          >
+            <Play className="w-5 h-5 fill-current" />
+            <span>ابدأ النطق الصوتي الآن</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleStop}
+            className="w-full py-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-black text-base rounded-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xl animate-pulse"
+          >
+            <Square className="w-5 h-5 fill-current" />
+            <span>إيقاف القراءة</span>
+          </button>
         )}
       </div>
+
     </div>
   );
 }

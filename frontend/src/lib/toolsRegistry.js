@@ -33,8 +33,8 @@ export const CATEGORIES = {
 // slug, name, description, category, icon
 export const TOOLS = [
   // Finance
-  { slug: "daman-calculator", name: "حاسبة الضمان المطور", desc: "احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة", category: 'finance', icon: 'Calculator' },
-  { slug: 'loan-by-salary', name: 'كم تمويل يطلع لي؟', desc: 'احسب أقصى تمويل بحسب راتبك ونسبة الاستقطاع', category: 'finance', icon: Wallet },
+  { slug: "daman-calculator", name: "حاسبة الضمان المطور", desc: "احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة", category: 'finance', icon: 'Calculator', icon: ShieldCheck },
+  { slug: 'loan-by-salary', name: 'حاسبة التمويل', desc: 'احسب أقصى تمويل بحسب راتبك ونسبة الاستقطاع', category: 'finance', icon: Wallet },
   { slug: 'loan-calculator', name: 'حاسبة القسط الشهري', desc: 'قسط التمويل الشهري + إجمالي الفوائد', category: 'finance', icon: Landmark },
   { slug: 'zakat', name: 'حاسبة الزكاة', desc: 'زكاة المال والذهب والفضة (2.5%)', category: 'finance', icon: HandHelping },
   { slug: 'inheritance', name: 'حاسبة الميراث الشرعي', desc: 'تقسيم التركة حسب الشريعة', category: 'finance', icon: Users },

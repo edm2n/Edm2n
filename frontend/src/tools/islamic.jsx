@@ -7,16 +7,16 @@ import { toArabicDigits } from '../lib/helpers';
 import { toHijri, toGregorian } from 'hijri-converter';
 import { Plus, Minus, RotateCcw, Volume2, Play, Pause, Bell, BellOff, VolumeX } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = process.env.REACT_APP_BACKEND_URL ? `${process.env.REACT_APP_BACKEND_URL}/api` : '/api';
 
 // Preset adhan/takbir voices - curated free public MP3s
 const ADHAN_PRESETS = [
   { id: 'afasy',    label: 'مشاري العفاسي',     url: 'https://media.assabile.com/assabile/adhan_3435370/e9ab8052fdb8.mp3' },
-  { id: 'minshawi', label: 'رابح بن دراح',       url: 'https://media.assabile.com/assabile/adhan_3435370/0bf83c80b583.mp3' },
-  { id: 'sudais',   label: 'عبدالرحمن السديس',   url: 'https://www.islamcan.com/audio/adhan/azan13.mp3' },
-  { id: 'basit',    label: 'عبدالباسط',         url: 'https://www.islamcan.com/audio/adhan/azan4.mp3' },
-  { id: 'mekkah',   label: 'أذان مكة المكرمة',   url: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
-  { id: 'madina',   label: 'أذان المدينة',       url: 'https://www.islamcan.com/audio/adhan/azan8.mp3' },
+  { id: 'minshawi', label: 'رابح بن دراح',      url: 'https://media.assabile.com/assabile/adhan_3435370/0bf83c80b583.mp3' },
+  { id: 'sudais',   label: 'عبدالرحمن السديس',  url: 'https://www.islamcan.com/audio/adhan/azan13.mp3' },
+  { id: 'basit',    label: 'عبدالباسط',        url: 'https://www.islamcan.com/audio/adhan/azan4.mp3' },
+  { id: 'mekkah',   label: 'أذان مكة المكرمة',  url: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
+  { id: 'madina',   label: 'أذان المدينة',      url: 'https://www.islamcan.com/audio/adhan/azan8.mp3' },
   { id: 'takbir',   label: 'التكبير (العيد)',    url: 'https://media.assabile.com/assabile/adhan_3435370/b22e0b06946e.mp3' },
   { id: 'custom',   label: 'رابط مخصّص...',      url: '' },
 ];
@@ -27,6 +27,7 @@ export function PrayerTimes() {
   const [country, setCountry] = useState('SA');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
   const [alerts, setAlerts] = useState(() => localStorage.getItem('prayer_alerts') === '1');
   const [adhanPreset, setAdhanPreset] = useState(() => localStorage.getItem('prayer_adhan_preset') || 'afasy');
   const [customAdhan, setCustomAdhan] = useState(() => localStorage.getItem('prayer_adhan_url') || DEFAULT_ADHAN);
@@ -40,13 +41,34 @@ export function PrayerTimes() {
 
   const load = () => {
     setLoading(true);
+    setErrorMsg(null);
+    
+    // محاولة الجلب من الـ Backend الخاص بك، وإذا فشل يتم الاعتماد على API أذان مباشرة كبديل احتياطي لضمان ظهور الأوقات
     axios.get(`${API}/prayer-times`, { params: { city, country, method: 4 } })
-      .then((r) => setData(r.data?.data))
-      .catch(() => setData(null))
+      .then((r) => {
+        if (r.data?.data) {
+          setData(r.data.data);
+        } else if (r.data) {
+          setData(r.data);
+        } else {
+          throw new Error('بيانات غير صالحة');
+        }
+      })
+      .catch(() => {
+        // Fallback مباشر لـ Aladhan API الحقيقي في حال لم يستجب الـ Backend الخاص بك
+        axios.get(`https://api.aladhan.com/v1/timingsByCity`, { params: { city, country, method: 4 } })
+          .then((res) => {
+            setData(res.data?.data);
+          })
+          .catch(() => {
+            setErrorMsg('تعذّر جلب مواقيت الصلاة، يجدر التحقق من الاتصال أو اسم المدينة.');
+            setData(null);
+          });
+      })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [city, country]);
 
   useEffect(() => { localStorage.setItem('prayer_alerts', alerts ? '1' : '0'); }, [alerts]);
   useEffect(() => { localStorage.setItem('prayer_adhan_preset', adhanPreset); }, [adhanPreset]);
@@ -63,6 +85,7 @@ export function PrayerTimes() {
         ['العصر', data.timings.Asr], ['المغرب', data.timings.Maghrib], ['العشاء', data.timings.Isha]
       ];
       for (const [name, t] of list) {
+        if (!t) continue;
         const [h, m] = t.split(':').map(Number);
         const pm = h * 60 + m;
         if (pm === nowM && now.getSeconds() < 5) {
@@ -92,8 +115,6 @@ export function PrayerTimes() {
     toast.success(!alerts ? 'تم تفعيل التنبيهات' : 'تم إيقاف التنبيهات');
   };
 
-  const testAdhan = () => { try { new Audio(currentAdhanUrl).play(); } catch { toast.error('تعذّر تشغيل الأذان'); } };
-
   const stopPreview = () => {
     if (previewAudioRef.current) {
       try { previewAudioRef.current.pause(); previewAudioRef.current.currentTime = 0; } catch {}
@@ -113,7 +134,6 @@ export function PrayerTimes() {
       audio.play().catch(() => { toast.error(`تعذّر تشغيل العيّنة`); setPreviewId(null); });
       previewAudioRef.current = audio;
       setPreviewId(preset.id);
-      // Auto-stop after 15s to keep it a "preview"
       setTimeout(() => { if (previewAudioRef.current === audio) stopPreview(); }, 15000);
     } catch { toast.error('تعذّر تشغيل الصوت'); }
   };
@@ -188,7 +208,7 @@ export function PrayerTimes() {
           {previewId && (
             <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
               <Volume2 className="h-3.5 w-3.5 text-[#D4AF37]" />
-              يشغّل الآن: <b>{ADHAN_PRESETS.find((x) => x.id === previewId)?.label}</b>
+               يشغّل الآن: <b>{ADHAN_PRESETS.find((x) => x.id === previewId)?.label}</b>
               <button data-testid="pt-preview-stop" onClick={stopPreview} className="text-red-500 hover:underline mr-2">إيقاف</button>
             </div>
           )}
@@ -205,10 +225,6 @@ export function PrayerTimes() {
           />
         )}
 
-        <div className="flex gap-2 flex-wrap">
-
-        </div>
-
         {nextPrayer && (
           <div className="text-sm text-muted-foreground">
             الصلاة القادمة: <b className="text-[#D4AF37]">{nextPrayer.name}</b> بعد {Math.floor(nextPrayer.in / 60)}س و {nextPrayer.in % 60}د
@@ -216,7 +232,9 @@ export function PrayerTimes() {
         )}
       </div>
 
-      {loading && <p className="text-muted-foreground">جاري التحميل...</p>}
+      {loading && <p className="text-muted-foreground">جاري تحميل أوقات الصلاة...</p>}
+      {errorMsg && <p className="text-red-500 text-sm">{errorMsg}</p>}
+
       {prayers && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(prayers).map(([k, v]) => (
@@ -408,7 +426,6 @@ export function Qibla() {
 export function RamadanCountdown() {
   const now = new Date();
   const h = toHijri(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  // Next Ramadan 1
   let year = h.hy;
   if (h.hm > 9 || (h.hm === 9 && h.hd > 0)) year++;
   const next = toGregorian(year, 9, 1);

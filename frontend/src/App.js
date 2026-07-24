@@ -1,12 +1,12 @@
 import RemoveBg from './tools/RemoveBg';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import '@/index.css';
 import axios from 'axios';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
-
 import Home from './pages/Home';
 import ToolPage from './pages/ToolPage';
+import CategoryPage from './pages/CategoryPage'; // استدعاء صفحة التصنيف الجديدة
 import { About, FAQ, Privacy, Terms, Links } from './pages/StaticPages';
 import Admin from './pages/Admin';
 import CustomPage from './pages/CustomPage';
@@ -23,25 +23,66 @@ function AppShell() {
   const [siteConfig, setSiteConfig] = useState({ ga_id: '', editor_picks: [], latest: [] });
   const [toolOverrides, setToolOverrides] = useState([]);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      window.deferredPrompt = e;
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
   useEffect(() => {
     axios.get(`${API}/config`).then((r) => setSiteConfig(r.data)).catch(() => {});
     axios.get(`${API}/tools/overrides`).then((r) => setToolOverrides(r.data)).catch(() => {});
   }, []);
 
-  // Load Google Analytics if configured
   useEffect(() => {
-    if (!siteConfig.ga_id || !/^G-/.test(siteConfig.ga_id)) return;
-    if (document.getElementById('ga-script')) return;
-    const s = document.createElement('script');
-    s.id = 'ga-script';
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${siteConfig.ga_id}`;
-    document.head.appendChild(s);
-    const s2 = document.createElement('script');
-    s2.innerHTML = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${siteConfig.ga_id}');`;
-    document.head.appendChild(s2);
-  }, [siteConfig.ga_id]);
+    const updateDynamicManifest = () => {
+      const currentUrl = window.location.href;
+      const pageTitle = document.title || "دليل مطر الإلكتروني";
+      let pageIcon = "/favicon.ico";
+      const imgElement = document.querySelector('main img, .tool-icon img, svg');
+      if (imgElement && imgElement.src) {
+        pageIcon = imgElement.src;
+      } else {
+        const faviconTag = document.querySelector('link[rel="icon"]');
+        if (faviconTag) {
+          pageIcon = faviconTag.href;
+        }
+      }
+      const dynamicManifest = {
+        short_name: pageTitle,
+        name: pageTitle,
+        start_url: currentUrl,
+        display: "standalone",
+        background_color: "#02120C",
+        theme_color: "#047857",
+        icons: [
+          { src: pageIcon, sizes: "192x192", type: "image/png" },
+          { src: pageIcon, sizes: "512x512", type: "image/png" }
+        ]
+      };
+      const stringifiedManifest = JSON.stringify(dynamicManifest);
+      const blob = new Blob([stringifiedManifest], { type: 'application/json' });
+      const manifestURL = URL.createObjectURL(blob);
+      let linkTag = document.querySelector('link[rel="manifest"]');
+      if (!linkTag) {
+        linkTag = document.createElement('link');
+        linkTag.rel = 'manifest';
+        document.head.appendChild(linkTag);
+      }
+      linkTag.href = manifestURL;
+    };
+    updateDynamicManifest();
+    const observer = new MutationObserver(updateDynamicManifest);
+    observer.observe(document.querySelector('title') || document.head, { subtree: true, characterData: true, childList: true });
+    return () => observer.disconnect();
+  }, [location]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -50,6 +91,8 @@ function AppShell() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home onOpenSearch={() => setSearchOpen(true)} siteConfig={siteConfig} toolOverrides={toolOverrides} />} />
+          <Route path="/category/:id" element={<CategoryPage toolOverrides={toolOverrides} />} />
+          <Route path="/tools" element={<CategoryPage toolOverrides={toolOverrides} isAll={true} />} />
           <Route path="/tools/remove-bg" element={<RemoveBg />} />
           <Route path="/tools/:slug" element={<ToolPage />} />
           <Route path="/tool/:slug" element={<ToolPage />} />

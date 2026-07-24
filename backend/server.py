@@ -9,6 +9,8 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
 import jwt
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, UploadFile, File
 from fastapi.responses import Response, PlainTextResponse
 from dotenv import load_dotenv
@@ -16,7 +18,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
-from gtts import gTTS
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -202,39 +204,7 @@ async def create_contact(payload: ContactCreate):
     await db.contacts.insert_one(obj.model_dump())
     return obj
 
-@api_router.post("/remove-bg")
-async def remove_background_api(image: UploadFile = File(...)):
-    if not REMOVE_BG_API_KEY:
-        raise HTTPException(status_code=500, detail="خدمة إزالة الخلفية غير مفعّلة")
-    try:
-        input_image = await image.read()
-        async with httpx.AsyncClient(timeout=20.0) as client_http:
-            response = await client_http.post(
-                "https://api.remove.bg/v1.0/removebg",
-                files={"image_file": input_image},
-                data={"size": "auto"},
-                headers={"X-Api-Key": REMOVE_BG_API_KEY},
-            )
-            if response.status_code == 200:
-                return Response(content=response.content, media_type="image/png")
-            logger.error(f"Remove.bg API Error {response.status_code}: {response.text}")
-            raise HTTPException(status_code=response.status_code, detail="فشلت المعالجة من خادم Remove.bg")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in remove-bg: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة الصورة: {str(e)}")
-
-@api_router.get("/prayer-times")
-async def prayer_times(city: str = "Riyadh", country: str = "SA", method: int = 4):
-    try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as hc:
-            r = await hc.get("https://api.aladhan.com/v1/timingsByCity",
-                             params={"city": city, "country": country, "method": method})
-            r.raise_for_status()
-            return r.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Prayer API error: {e}")
+executor = ThreadPoolExecutor(max_workers=2)
 
 @api_router.get("/currency")
 async def currency_rates(base: str = "sar"):
@@ -390,31 +360,6 @@ async def ai_tashkeel(req: TashkeelRequest):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
 
-# ==================== TTS ENDPOINT ====================
-@api_router.post("/tts")
-async def text_to_speech_api(data: TTSRequest):
-    try:
-        text_content = data.text.strip() if data and data.text else ""
-        if not text_content:
-            raise HTTPException(status_code=400, detail="النص مطلوب")
-
-        # توليد الملف الصوتي باستخدام gTTS
-        tts = gTTS(text=text_content, lang='ar', slow=False)
-        audio_io = io.BytesIO()
-        tts.write_to_fp(audio_io)
-        audio_io.seek(0)
-        
-        if audio_io.getbuffer().nbytes == 0:
-            raise HTTPException(status_code=500, detail="فشل توليد الملف الصوتي")
-
-        return Response(content=audio_io.read(), media_type="audio/mpeg")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"TTS Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-# ==================== ADMIN ROUTES ====================
 @api_router.post("/admin/login")
 async def admin_login(body: LoginBody):
     if body.username != ADMIN_USERNAME or body.password != ADMIN_PASSWORD:

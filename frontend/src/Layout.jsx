@@ -59,7 +59,7 @@ export function Header({ onOpenContact, onOpenSearch }) {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3">
         <Link to="/" data-testid="header-logo" className="flex items-center gap-2 group">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-emerald-700 to-emerald-900 text-[#D4AF37] font-bold shadow-lg">
-            دم
+           مطر
           </div>
           <div className="hidden sm:block">
             <div className="text-base font-bold leading-tight">دليل مطر</div>

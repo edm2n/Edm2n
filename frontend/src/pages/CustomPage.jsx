@@ -4,7 +4,9 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { ExternalLink, Calendar } from 'lucide-react';
+import { ExternalLink, Calendar, Send } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button, Input } from '../lib/ui';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -15,11 +17,32 @@ export default function CustomPage() {
   const [page, setPage] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
+  const [form, setForm] = useState({ name: '', email: '', message: '' });
+  const [sending, setSending] = useState(false);
+
   useEffect(() => {
     axios.get(`${API}/pages/${slug}`)
       .then((r) => setPage(r.data))
       .catch(() => setNotFound(true));
   }, [slug]);
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      toast.error('يرجى تعبئة جميع الحقول');
+      return;
+    }
+    setSending(true);
+    try {
+      await axios.post(`${API}/contact`, form);
+      toast.success('تم إرسال رسالتك بنجاح — شكراً لتواصلك');
+      setForm({ name: '', email: '', message: '' });
+    } catch (err) {
+      toast.error('تعذّر الإرسال، جرّب مرة أخرى');
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (notFound) return (
     <div className="mx-auto max-w-2xl px-4 py-20 text-center">
@@ -30,7 +53,14 @@ export default function CustomPage() {
 
   if (!page) return <div className="mx-auto max-w-2xl px-4 py-20 text-center text-muted-foreground">جاري التحميل...</div>;
 
-  const html = DOMPurify.sanitize(marked.parse(page.content || ''));
+  const rawContent = page.content || '';
+  
+  // تقسيم النص بناءً على الكلمة الجديدة الواضحة
+const parts = rawContent.split('اتصل-بي');
+  const hasContact = parts.length > 1;
+
+  const htmlBefore = DOMPurify.sanitize(marked.parse(parts[0] || ''));
+  const htmlAfter = hasContact && parts[1] ? DOMPurify.sanitize(marked.parse(parts[1])) : '';
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10 md:py-16">
@@ -58,11 +88,66 @@ export default function CustomPage() {
           </a>
         )}
       </div>
+
       <div
         className="markdown-content leading-loose text-lg text-foreground"
-        data-testid="custom-page-content"
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: htmlBefore }}
       />
+
+      {/* نموذج الاتصال المباشر */}
+      {hasContact && (
+        <div className="my-10 p-6 sm:p-8 rounded-3xl border border-border bg-card shadow-sm" dir="rtl">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold mb-1">التواصل مع مطر الموايقي</h3>
+            <p className="text-sm text-muted-foreground">
+              سترسل الرسالة إلى: <span dir="ltr" className="font-mono">edm2n@msn.com</span>
+            </p>
+          </div>
+
+          <form onSubmit={handleContactSubmit} className="space-y-4">
+            <Input
+              testid="contact-name"
+              label="الاسم"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="اسمك الكريم"
+            />
+            <Input
+              testid="contact-email"
+              label="البريد الإلكتروني"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="you@example.com"
+              dir="ltr"
+            />
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium">الرسالة</span>
+              <textarea
+                data-testid="contact-message"
+                value={form.message}
+                onChange={(e) => setForm({ ...form, message: e.target.value })}
+                placeholder="اكتب رسالتك..."
+                rows={5}
+                className="w-full rounded-xl border border-input bg-background px-4 py-3 text-base outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/30"
+              />
+            </label>
+            <div className="flex justify-end pt-2">
+              <Button testid="contact-submit" type="submit" variant="gold" disabled={sending} className="w-full sm:w-auto">
+                <Send className="h-4 w-4 ml-2" />
+                {sending ? 'جاري الإرسال...' : 'إرسال'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {htmlAfter && (
+        <div
+          className="markdown-content leading-loose text-lg text-foreground"
+          dangerouslySetInnerHTML={{ __html: htmlAfter }}
+        />
+      )}
     </div>
   );
 }

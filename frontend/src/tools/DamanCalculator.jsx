@@ -1,107 +1,175 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { Users, Wallet, TrendingUp, CheckCircle2, Zap, Utensils, ShieldCheck } from 'lucide-react';
 
 export default function DamanCalculator() {
-  const [familyCount, setFamilyCount] = useState(1);
-  const [earnedIncome, setEarnedIncome] = useState(0);
-  const [unearnedIncome, setUnearnedIncome] = useState(0);
+  const [familyCount, setFamilyCount] = useState(0); 
+  const [earnedIncome, setEarnedIncome] = useState(0); 
+  const [unearnedIncome, setUnearnedIncome] = useState(0); 
   const [result, setResult] = useState(null);
 
-  const handleCalculate = () => {
-    // 50% من الدخل المكتسب
+  const handleCalculate = useCallback(() => {
+    const count = Number(familyCount) || 1;
+    const baseLimit = 1320 + ((count - 1) * 660);
     const adjustedEarned = Number(earnedIncome) * 0.5;
-    // إجمالي الدخل المحتسب
-    const totalCalculatedIncome = adjustedEarned + Number(unearnedIncome);
-    // الحد الأدنى المحتسب للأسرة (1320 للعائل + 660 لكل تابع)
-    const baseLimit = 1320 + ((Number(familyCount) - 1) * 660);
-    const maxLimit = Math.min(baseLimit, 5000);
+    const totalUnearned = Number(unearnedIncome);
+    const totalCalculatedIncome = adjustedEarned + totalUnearned;
 
-    if (totalCalculatedIncome >= maxLimit) {
+    if (totalCalculatedIncome >= baseLimit) {
       setResult({
         eligible: false,
-        message: "عذراً، الدخل المحتسب يتجاوز الحد المانع للاستحقاق."
+        calculatedIncome: totalCalculatedIncome,
+        maxLimit: baseLimit,
+        message: "عذراً، إجمالي الدخل المحتسب يتجاوز الحد المانع للاستحقاق."
       });
     } else {
-      const estimatedSupport = maxLimit - totalCalculatedIncome;
+      const baseMonthlySupport = baseLimit - totalCalculatedIncome;
       setResult({
         eligible: true,
         calculatedIncome: totalCalculatedIncome,
-        maxLimit: maxLimit,
-        estimatedSupport: Math.max(0, estimatedSupport)
+        maxLimit: baseLimit,
+        baseMonthlySupport: Math.round(baseMonthlySupport),
+        foodSupport: 756, 
+        electricitySupport: 334, 
+        estimatedSupport: Math.round(baseMonthlySupport + 756 + 334)
       });
     }
-  };
+  }, [familyCount, earnedIncome, unearnedIncome]);
 
   return (
-    <div className="max-w-xl mx-auto space-y-6 text-foreground">
-      <div className="space-y-4">
+    <div className="w-full max-w-2xl mx-auto p-6 md:p-8 rounded-2xl bg-card border border-border shadow-xl text-card-foreground font-sans transition-colors duration-300" dir="rtl">
+      
+      {/* رأس الصفحة الداخلي مع العنوان وأيقونة درع الحماية المناسبة */}
+      <div className="flex items-center justify-between gap-4 pb-6 mb-6 border-b border-border">
         <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">
-            عدد أفراد الأسرة (العائل والتابعون):
+          <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">حاسبة الضمان المطور</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة
+          </p>
+        </div>
+        
+        <div className="w-12 h-12 rounded-2xl bg-card border border-border flex items-center justify-center text-primary shadow-sm shrink-0">
+          <ShieldCheck className="w-6 h-6" />
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        {/* حقل أفراد الأسرة */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Users className="w-4 h-4 text-primary" />
+            إجمالي أفراد الأسرة (العائل والتابعون):
           </label>
           <input
             type="number"
             min="1"
             value={familyCount}
             onChange={(e) => setFamilyCount(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg bg-slate-900/80 border border-slate-700 text-white focus:outline-none focus:border-[#D4AF37] transition-colors"
+            className="w-full px-4 py-3 rounded-xl bg-background border border-input text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+            placeholder="مثال: 9"
           />
+          <p className="text-xs text-muted-foreground">العائل (1320 ريال) + التابعون (660 ريال لكل تابع).</p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">
-            إجمالي الدخل المكتسب للأسرة (الراتب الشهري):
+        {/* حقل الدخل المكتسب */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Wallet className="w-4 h-4 text-primary" />
+            الدخل المكتسب (الرواتب والأعمال):
           </label>
-          <input
-            type="number"
-            min="0"
-            value={earnedIncome}
-            onChange={(e) => setEarnedIncome(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg bg-slate-900/80 border border-slate-700 text-white focus:outline-none focus:border-[#D4AF37] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              value={earnedIncome}
+              onChange={(e) => setEarnedIncome(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-background border border-input text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all ps-16"
+              placeholder="0"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground bg-muted px-2 py-1 rounded">
+              ريال
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">يُخصم منه 50% طبقاً للائحة.</p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">
-            الدخل غير المكتسب (دعم حكومي آخر إن وجد):
+        {/* حقل الدخل غير المكتسب */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            الدخل غير المكتسب (الدعم الحكومي / غير الحكومي):
           </label>
-          <input
-            type="number"
-            min="0"
-            value={unearnedIncome}
-            onChange={(e) => setUnearnedIncome(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg bg-slate-900/80 border border-slate-700 text-white focus:outline-none focus:border-[#D4AF37] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              value={unearnedIncome}
+              onChange={(e) => setUnearnedIncome(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-background border border-input text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all ps-16"
+              placeholder="2088"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground bg-muted px-2 py-1 rounded">
+              ريال
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">يُحسب كاملاً ولا يخصم منه شيء.</p>
         </div>
 
+        {/* زر الحساب */}
         <button
+          type="button"
           onClick={handleCalculate}
-          className="w-full py-3 px-4 bg-[#D4AF37] hover:bg-[#b89628] text-slate-950 font-bold rounded-lg transition-colors shadow-lg mt-2"
+          className="w-full py-3.5 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl transition-all shadow-md cursor-pointer mt-4"
         >
-          احسب الاستحقاق التقديري
+          احسب الاستحقاق الرسمي الآن
         </button>
       </div>
 
+      {/* قسم النتائج */}
       {result && (
-        <div className={`p-4 rounded-lg border ${result.eligible ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-rose-950/40 border-rose-500/30 text-rose-300'}`}>
-          {result.eligible ? (
-            <div className="space-y-2">
-              <p className="font-semibold text-lg text-emerald-400">مستحق بناءً على البيانات المدخلة 🎉</p>
-              <div className="text-sm space-y-1 text-slate-300">
-                <p>الدخل المحتسب: <span className="font-bold text-white">{result.calculatedIncome} ريال</span></p>
-                <p>الحد المانع للأسرة: <span className="font-bold text-white">{result.maxLimit} ريال</span></p>
-                <p className="text-base font-bold text-[#D4AF37] mt-2">
-                  مبلغ الدعم التقديري: {result.estimatedSupport} ريال شهرياً
-                </p>
+        <div className="mt-6 p-5 rounded-2xl border bg-muted/40 border-border text-foreground transition-all">
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 pb-3 border-b border-border">
+              <CheckCircle2 className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <h3 className="font-bold text-lg text-foreground">تفاصيل مبالغ الدعم المستحق</h3>
+                <p className="text-xs text-muted-foreground">الحد المانع الإجمالي للأسرة: {result.maxLimit} ريال | الدخل المحتسب: {result.calculatedIncome} ريال</p>
               </div>
             </div>
-          ) : (
-            <p className="font-medium text-rose-300">{result.message}</p>
-          )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-card p-3.5 rounded-xl border border-border text-center shadow-sm">
+                <p className="text-xs text-muted-foreground mb-1">مبلغ الدعم الشهري</p>
+                <p className="text-base font-bold text-foreground">{result.baseMonthlySupport} <span className="text-xs font-normal text-primary">ريال</span></p>
+              </div>
+              <div className="bg-card p-3.5 rounded-xl border border-border text-center shadow-sm">
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                  <Utensils className="w-3.5 h-3.5 text-primary" />
+                  <span>مبلغ دعم الغذاء</span>
+                </div>
+                <p className="text-base font-bold text-foreground">{result.foodSupport} <span className="text-xs font-normal text-primary">ريال</span></p>
+              </div>
+              <div className="bg-card p-3.5 rounded-xl border border-border text-center shadow-sm">
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                  <Zap className="w-3.5 h-3.5 text-primary" />
+                  <span>مبلغ دعم الكهرباء</span>
+                </div>
+                <p className="text-base font-bold text-foreground">{result.electricitySupport} <span className="text-xs font-normal text-primary">ريال</span></p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-primary text-primary-foreground flex items-center justify-between shadow-md">
+              <div>
+                <p className="text-xs font-medium opacity-90">مجموع الدعم الكلي</p>
+                <p className="text-xs opacity-75">الأساسي + الغذاء + الكهرباء</p>
+              </div>
+              <p className="text-2xl font-black">{result.estimatedSupport} <span className="text-sm font-normal opacity-90">ريال</span></p>
+            </div>
+          </div>
         </div>
       )}
 
-      <p className="text-xs text-slate-400 text-center leading-relaxed">
-        * ملاحظة: هذه الحاسبة تقديرية بناءً على شروط ومعدلات الاستحقاق في منصة الدعم والحماية الاجتماعية.
+      <p className="text-xs text-muted-foreground text-center mt-6 leading-relaxed">
+        * النتائج الظاهرة هي نتائج تقديرية بناءً على معادلة منصة الدعم والحماية الاجتماعية الرسمية.
       </p>
     </div>
   );

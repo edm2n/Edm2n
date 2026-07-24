@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { TOOLS, CATEGORIES, TOOL_MAP } from '../lib/toolsRegistry';
 import { ToolCard, getMostUsedSlugs } from '../lib/ui';
-import { Search, Sparkles, ArrowLeft, TrendingUp, Award, Clock, Newspaper, Calendar as CalIcon } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Award, Newspaper, Calendar as CalIcon } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -16,19 +16,19 @@ function ArticleCard({ page, index }) {
       style={{ animationDelay: `${(index % 6) * 50}ms` }}
     >
       {page.image ? (
-        <div className="relative h-40 overflow-hidden bg-muted">
+        <div className="relative h-32 overflow-hidden bg-muted">
           <img src={page.image} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => e.target.style.display = 'none'} />
         </div>
       ) : (
-        <div className="h-40 bg-gradient-to-br from-[#D4AF37]/20 to-transparent grid place-items-center">
-          <Newspaper className="h-10 w-10 text-[#D4AF37]/60" />
+        <div className="h-32 bg-gradient-to-br from-[#D4AF37]/20 to-transparent grid place-items-center">
+          <Newspaper className="h-8 w-8 text-[#D4AF37]/60" />
         </div>
       )}
-      <div className="p-5">
-        <h3 className="font-bold text-base group-hover:text-[#D4AF37] transition-colors line-clamp-2">{page.title}</h3>
-        {page.excerpt && <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{page.excerpt}</p>}
+      <div className="p-4">
+        <h3 className="font-bold text-sm group-hover:text-[#D4AF37] transition-colors line-clamp-2">{page.title}</h3>
+        {page.excerpt && <p className="mt-1.5 text-xs text-muted-foreground line-clamp-1 leading-relaxed">{page.excerpt}</p>}
         {page.created_at && (
-          <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
             <CalIcon className="h-3 w-3" />
             {new Date(page.created_at).toLocaleDateString('ar-SA')}
           </div>
@@ -38,30 +38,14 @@ function ArticleCard({ page, index }) {
   );
 }
 
-function Section({ title, icon: Icon, tools, testid }) {
-  if (!tools?.length) return null;
-  return (
-    <section data-testid={testid} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className="h-5 w-5 text-[#D4AF37]" />
-        <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {tools.map((t, i) => <ToolCard key={t.slug} tool={t} index={i} />)}
-      </div>
-    </section>
-  );
-}
-
 export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
-  const [activeCat, setActiveCat] = useState('all');
+  const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
 
   useEffect(() => {
     axios.get(`${API}/pages`).then((r) => setArticles(r.data || [])).catch(() => {});
   }, []);
 
-  // Apply overrides + hide flagged tools
   const visibleTools = useMemo(() => {
     const overrideMap = Object.fromEntries((toolOverrides || []).map((o) => [o.slug, o]));
     return TOOLS
@@ -69,89 +53,60 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
       .map((t) => ({ ...t, ...(overrideMap[t.slug] ? { name: overrideMap[t.slug].name || t.name, desc: overrideMap[t.slug].desc || t.desc } : {}) }));
   }, [toolOverrides]);
 
-  const filtered = activeCat === 'all' ? visibleTools : visibleTools.filter((t) => t.category === activeCat);
-
   const mostUsed = useMemo(() => {
-    const slugs = getMostUsedSlugs(8);
+    const slugs = getMostUsedSlugs(2);
     return slugs.map((s) => TOOL_MAP[s]).filter(Boolean);
   }, []);
 
   const editorPicks = useMemo(() => {
     const picks = (siteConfig?.editor_picks || []).map((s) => TOOL_MAP[s]).filter(Boolean);
-    if (picks.length) return picks;
-    // Fallback: sensible defaults
-    return ['zakat', 'prayer-times', 'gold-price', 'currency', 'bmi', 'qr-generator', 'ai-bio', 'loan-by-salary'].map((s) => TOOL_MAP[s]).filter(Boolean);
+    if (picks.length) return picks.slice(0, 2);
+    return ['zakat', 'prayer-times'].map((s) => TOOL_MAP[s]).filter(Boolean);
   }, [siteConfig]);
 
-  const latest = useMemo(() => {
-    // Last 8 tools in registry
-    return visibleTools.slice(-8).reverse();
-  }, [visibleTools]);
+  const latestArticles = useMemo(() => {
+    return articles.slice(0, 2);
+  }, [articles]);
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative hero-glow overflow-hidden">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 md:py-20">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-1 text-xs text-[#D4AF37] mb-6">
+      <section className="relative hero-glow overflow-hidden text-center">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3.5 py-1.5 text-xs text-[#D4AF37] mb-6 shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
             {visibleTools.length}+ أداة عربية مجانية في مكان واحد
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight max-w-4xl">
+          
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
             دليل <span className="text-[#D4AF37]">مطر</span> الإلكتروني
-            <br />
-            <span className="text-muted-foreground text-2xl md:text-3xl lg:text-4xl font-normal">
-              كل الحاسبات والأدوات في متناول يدك
-            </span>
           </h1>
-          <p className="mt-6 max-w-2xl text-base md:text-lg text-muted-foreground leading-relaxed">
-            تمويل، زكاة، ميراث، مواقيت الصلاة، BMI، تحويل عملات، QR، أدوات مطوّرين، وأكثر — بدون تسجيل، بدون إعلانات مزعجة.
+          
+          <p className="mt-3 text-muted-foreground text-lg md:text-xl font-normal max-w-xl">
+            كل الحاسبات والأدوات الذكية في متناول يدك بسرعة وسهولة.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button data-testid="hero-search-btn" onClick={onOpenSearch} className="inline-flex items-center gap-2 rounded-2xl bg-[#D4AF37] px-6 py-3 text-base font-semibold text-black hover:bg-[#CA8A04] transition-colors">
-              <Search className="h-5 w-5" /> ابحث عن أداة
+
+          <div className="mt-8 w-full max-w-2xl px-2">
+            <button
+              data-testid="hero-search-btn"
+              onClick={onOpenSearch}
+              className="w-full group flex items-center justify-between rounded-2xl border-2 border-[#D4AF37]/40 bg-card/80 hover:border-[#D4AF37] px-5 py-4 text-right shadow-lg backdrop-blur-md transition-all"
+            >
+              <div className="flex items-center gap-3 text-muted-foreground group-hover:text-foreground transition-colors">
+                <Search className="h-5 w-5 text-[#D4AF37]" />
+                <span className="text-base">ابحث عن أي أداة، حاسبة، أو خدمة...</span>
+              </div>
             </button>
-            <a data-testid="hero-scroll-tools" href="#tools" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-6 py-3 text-base font-medium hover:border-[#D4AF37] transition-colors">
-              تصفّح الأدوات <ArrowLeft className="h-4 w-4" />
-            </a>
           </div>
         </div>
       </section>
 
-      {/* Editor's Picks */}
-      <Section title="اخترنا لكم" icon={Award} tools={editorPicks} testid="section-editor-picks" />
-
-      {/* Articles */}
-      {articles.length > 0 && (
-        <section data-testid="section-articles" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Newspaper className="h-5 w-5 text-[#D4AF37]" />
-            <h2 className="text-xl md:text-2xl font-bold">آخر المقالات</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {articles.slice(0, 8).map((a, i) => <ArticleCard key={a.slug} page={a} index={i} />)}
-          </div>
-        </section>
-      )}
-
-      {/* Most Used */}
-      {mostUsed.length > 0 && (
-        <Section title="أكثر استخداماً" icon={TrendingUp} tools={mostUsed} testid="section-most-used" />
-      )}
-
-      {/* Latest */}
-      <Section title="أحدث الأدوات" icon={Clock} tools={latest} testid="section-latest" />
-
-      {/* All Tools with categories */}
-      <section id="tools" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
-        <h2 className="text-2xl md:text-3xl font-bold mb-4">جميع الأدوات</h2>
-        <div className="flex flex-wrap gap-2 mb-8 sticky top-16 z-30 bg-background/80 backdrop-blur-md py-3 -mx-4 px-4">
+      {/* شريط التصنيفات والأقسام في الأعلى */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
           <button
             data-testid="cat-all"
-            onClick={() => setActiveCat('all')}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              activeCat === 'all' ? 'bg-[#D4AF37] text-black' : 'border border-border bg-background text-foreground hover:border-[#D4AF37]'
-            }`}
+            onClick={() => navigate('/tools')}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors border border-border bg-background text-foreground hover:border-[#D4AF37] shadow-sm"
           >
             الكل ({visibleTools.length})
           </button>
@@ -162,22 +117,61 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
               <button
                 key={c.id}
                 data-testid={`cat-${c.id}`}
-                onClick={() => setActiveCat(c.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                  activeCat === c.id ? 'bg-[#D4AF37] text-black' : 'border border-border bg-background text-foreground hover:border-[#D4AF37]'
-                }`}
+                onClick={() => navigate(`/category/${c.id}`)}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors border border-border bg-background text-foreground hover:border-[#D4AF37] shadow-sm"
               >
-                <Icon className="h-3.5 w-3.5" />
-                {c.name} ({count})
+                <Icon className="h-4 w-4 text-[#D4AF37]" />
+                <span className="truncate">{c.name}</span> ({count})
               </button>
             );
           })}
         </div>
+      </section>
 
-        <div data-testid="tools-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
-          {filtered.map((tool, i) => (
-            <ToolCard key={tool.slug} tool={tool} index={i} />
-          ))}
+      {/* الأقسام الثلاثة بجانب بعضها البعض */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <div data-testid="section-editor-picks" className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+              <Award className="h-5 w-5 text-[#D4AF37]" />
+              <h2 className="text-lg font-bold">اخترنا لكم</h2>
+            </div>
+            <div className="space-y-3">
+              {editorPicks.map((t, i) => (
+                <ToolCard key={t.slug} tool={t} index={i} />
+              ))}
+            </div>
+          </div>
+
+          <div data-testid="section-articles" className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+              <Newspaper className="h-5 w-5 text-[#D4AF37]" />
+              <h2 className="text-lg font-bold">آخر المقالات</h2>
+            </div>
+            <div className="space-y-3">
+              {latestArticles.length > 0 ? (
+                latestArticles.map((a, i) => (
+                  <ArticleCard key={a.slug} page={a} index={i} />
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground">لا توجد مقالات متاحة حالياً</p>
+              )}
+            </div>
+          </div>
+
+          <div data-testid="section-most-used" className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+              <TrendingUp className="h-5 w-5 text-[#D4AF37]" />
+              <h2 className="text-lg font-bold">أكثر استخداماً</h2>
+            </div>
+            <div className="space-y-3">
+              {mostUsed.map((t, i) => (
+                <ToolCard key={t.slug} tool={t} index={i} />
+              ))}
+            </div>
+          </div>
+
         </div>
       </section>
     </>
