@@ -3,3 +3,11 @@
     "@imgly/background-removal": "^1.7.0"
   }
 }
+{
+  "name": "edm2n",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && CI=false npx craco build",
+    "install-all": "cd frontend && yarn install"
+  }
+}
