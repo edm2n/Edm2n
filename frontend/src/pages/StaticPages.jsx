@@ -3,7 +3,7 @@ import React from 'react';
 
 function Container({ title, children }) {
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10 md:py-16">
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10 md:py-16" dir="rtl">
       <h1 className="text-3xl md:text-4xl font-bold mb-6">{title}</h1>
       <div className="prose prose-lg max-w-none leading-loose text-foreground">
         {children}
