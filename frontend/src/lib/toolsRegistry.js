@@ -33,7 +33,7 @@ export const CATEGORIES = {
 // slug, name, description, category, icon
 export const TOOLS = [
   // Finance
-  { slug: "daman-calculator", name: "حاسبة الضمان الاجتماعي المطور", desc: "احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة", category: 'finance', icon: 'Calculator', icon: ShieldCheck },
+  { slug: "daman-calculator", name: "حاسبة الضمان الاجتماعي المطور", desc: "احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة", category: 'finance', icon: ShieldCheck, component: DamanCalculator },
   { slug: 'loan-by-salary', name: 'حاسبة التمويل', desc: 'احسب أقصى تمويل بحسب راتبك ونسبة الاستقطاع', category: 'finance', icon: Wallet },
   { slug: 'loan-calculator', name: 'حاسبة القسط الشهري', desc: 'قسط التمويل الشهري + إجمالي الفوائد', category: 'finance', icon: Landmark },
   { slug: 'zakat', name: 'حاسبة الزكاة', desc: 'زكاة المال والذهب والفضة (2.5%)', category: 'finance', icon: HandHelping },
@@ -53,7 +53,7 @@ export const TOOLS = [
 
   // Islamic
   { slug: 'prayer-times', name: 'مواقيت الصلاة', desc: 'أوقات الصلاة حسب مدينتك (Aladhan)', category: 'islamic', icon: Sunrise },
-  { slug: 'hijri-date', name: 'التاريخ الهجري', desc: 'اليوم الهجري + تحويل ميلادي/هجري', category: 'islamic', icon: Moon },
+  { slug: 'hijri-date', name: 'التاريخ الهجري', desc: 'تحويل التاريخ | الهجري الى ميلادي والعكس', category: 'islamic', icon: Moon },
   { slug: 'date-convert', name: 'تحويل التاريخ', desc: 'ميلادي ↔ هجري بدقة', category: 'islamic', icon: CalendarDays },
   { slug: 'tasbih', name: 'مسبحة إلكترونية', desc: 'عدّاد التسبيح مع أهداف قابلة للتخصيص', category: 'islamic', icon: Feather },
   { slug: 'adhkar', name: 'أذكار الصباح والمساء', desc: 'أذكار موثّقة مع عدّاد التقدّم', category: 'islamic', icon: BookOpen },
@@ -88,7 +88,6 @@ export const TOOLS = [
   { slug: 'temperature', name: 'محول الحرارة', desc: 'مئوية ↔ فهرنهايت ↔ كلفن', category: 'converters', icon: Waves },
 
   // Dev Tools
-
   { slug: 'qr-generator', name: 'مولّد QR Code', desc: 'نص، رابط، واي فاي، اتصال', category: 'dev', icon: QrCode },
   { slug: 'qr-reader', name: 'قارئ QR Code', desc: 'امسح رمز QR بكاميرا الجوّال مباشرة', category: 'dev', icon: ScanLine },
   { slug: 'password', name: 'مولّد كلمات مرور', desc: 'قوية وعشوائية مع خيارات', category: 'dev', icon: KeyRound },
