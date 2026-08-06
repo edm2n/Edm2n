@@ -12,6 +12,6 @@ It builds absolute URLs from the request's Host header so it works on any deploy
     <loc>https://edm2n.com/api/sitemap.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>https://utility-zone-3.emergent.host/api/sitemap.xml</loc>
+    <loc>https://edm2n-backend.onrender.com/api/sitemap.xml</loc>
   </sitemap>
 </sitemapindex>
