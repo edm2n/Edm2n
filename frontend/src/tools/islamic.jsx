@@ -7,16 +7,16 @@ import { toArabicDigits } from '../lib/helpers';
 import { toHijri, toGregorian } from 'hijri-converter';
 import { Plus, Minus, RotateCcw, Volume2, Play, Pause, Bell, BellOff, VolumeX } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL ? `${process.env.REACT_APP_BACKEND_URL}/api` : '/api';
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Preset adhan/takbir voices - curated free public MP3s
 const ADHAN_PRESETS = [
   { id: 'afasy',    label: 'مشاري العفاسي',     url: 'https://media.assabile.com/assabile/adhan_3435370/e9ab8052fdb8.mp3' },
-  { id: 'minshawi', label: 'رابح بن دراح',      url: 'https://media.assabile.com/assabile/adhan_3435370/0bf83c80b583.mp3' },
-  { id: 'sudais',   label: 'عبدالرحمن السديس',  url: 'https://www.islamcan.com/audio/adhan/azan13.mp3' },
-  { id: 'basit',    label: 'عبدالباسط',        url: 'https://www.islamcan.com/audio/adhan/azan4.mp3' },
-  { id: 'mekkah',   label: 'أذان مكة المكرمة',  url: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
-  { id: 'madina',   label: 'أذان المدينة',      url: 'https://www.islamcan.com/audio/adhan/azan8.mp3' },
+  { id: 'minshawi', label: 'رابح بن دراح',       url: 'https://media.assabile.com/assabile/adhan_3435370/0bf83c80b583.mp3' },
+  { id: 'sudais',   label: 'عبدالرحمن السديس',   url: 'https://www.islamcan.com/audio/adhan/azan13.mp3' },
+  { id: 'basit',    label: 'عبدالباسط',         url: 'https://www.islamcan.com/audio/adhan/azan4.mp3' },
+  { id: 'mekkah',   label: 'أذان مكة المكرمة',   url: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
+  { id: 'madina',   label: 'أذان المدينة',       url: 'https://www.islamcan.com/audio/adhan/azan8.mp3' },
   { id: 'takbir',   label: 'التكبير (العيد)',    url: 'https://media.assabile.com/assabile/adhan_3435370/b22e0b06946e.mp3' },
   { id: 'custom',   label: 'رابط مخصّص...',      url: '' },
 ];
@@ -27,7 +27,6 @@ export function PrayerTimes() {
   const [country, setCountry] = useState('SA');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
   const [alerts, setAlerts] = useState(() => localStorage.getItem('prayer_alerts') === '1');
   const [adhanPreset, setAdhanPreset] = useState(() => localStorage.getItem('prayer_adhan_preset') || 'afasy');
   const [customAdhan, setCustomAdhan] = useState(() => localStorage.getItem('prayer_adhan_url') || DEFAULT_ADHAN);
@@ -41,34 +40,13 @@ export function PrayerTimes() {
 
   const load = () => {
     setLoading(true);
-    setErrorMsg(null);
-    
-    // محاولة الجلب من الـ Backend الخاص بك، وإذا فشل يتم الاعتماد على API أذان مباشرة كبديل احتياطي لضمان ظهور الأوقات
     axios.get(`${API}/prayer-times`, { params: { city, country, method: 4 } })
-      .then((r) => {
-        if (r.data?.data) {
-          setData(r.data.data);
-        } else if (r.data) {
-          setData(r.data);
-        } else {
-          throw new Error('بيانات غير صالحة');
-        }
-      })
-      .catch(() => {
-        // Fallback مباشر لـ Aladhan API الحقيقي في حال لم يستجب الـ Backend الخاص بك
-        axios.get(`https://api.aladhan.com/v1/timingsByCity`, { params: { city, country, method: 4 } })
-          .then((res) => {
-            setData(res.data?.data);
-          })
-          .catch(() => {
-            setErrorMsg('تعذّر جلب مواقيت الصلاة، يجدر التحقق من الاتصال أو اسم المدينة.');
-            setData(null);
-          });
-      })
+      .then((r) => setData(r.data?.data))
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [city, country]);
+  useEffect(() => { load(); }, []);
 
   useEffect(() => { localStorage.setItem('prayer_alerts', alerts ? '1' : '0'); }, [alerts]);
   useEffect(() => { localStorage.setItem('prayer_adhan_preset', adhanPreset); }, [adhanPreset]);
@@ -85,7 +63,6 @@ export function PrayerTimes() {
         ['العصر', data.timings.Asr], ['المغرب', data.timings.Maghrib], ['العشاء', data.timings.Isha]
       ];
       for (const [name, t] of list) {
-        if (!t) continue;
         const [h, m] = t.split(':').map(Number);
         const pm = h * 60 + m;
         if (pm === nowM && now.getSeconds() < 5) {
@@ -115,6 +92,8 @@ export function PrayerTimes() {
     toast.success(!alerts ? 'تم تفعيل التنبيهات' : 'تم إيقاف التنبيهات');
   };
 
+  const testAdhan = () => { try { new Audio(currentAdhanUrl).play(); } catch { toast.error('تعذّر تشغيل الأذان'); } };
+
   const stopPreview = () => {
     if (previewAudioRef.current) {
       try { previewAudioRef.current.pause(); previewAudioRef.current.currentTime = 0; } catch {}
@@ -134,6 +113,7 @@ export function PrayerTimes() {
       audio.play().catch(() => { toast.error(`تعذّر تشغيل العيّنة`); setPreviewId(null); });
       previewAudioRef.current = audio;
       setPreviewId(preset.id);
+      // Auto-stop after 15s to keep it a "preview"
       setTimeout(() => { if (previewAudioRef.current === audio) stopPreview(); }, 15000);
     } catch { toast.error('تعذّر تشغيل الصوت'); }
   };
@@ -208,7 +188,7 @@ export function PrayerTimes() {
           {previewId && (
             <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
               <Volume2 className="h-3.5 w-3.5 text-[#D4AF37]" />
-               يشغّل الآن: <b>{ADHAN_PRESETS.find((x) => x.id === previewId)?.label}</b>
+              يشغّل الآن: <b>{ADHAN_PRESETS.find((x) => x.id === previewId)?.label}</b>
               <button data-testid="pt-preview-stop" onClick={stopPreview} className="text-red-500 hover:underline mr-2">إيقاف</button>
             </div>
           )}
@@ -225,6 +205,10 @@ export function PrayerTimes() {
           />
         )}
 
+        <div className="flex gap-2 flex-wrap">
+
+        </div>
+
         {nextPrayer && (
           <div className="text-sm text-muted-foreground">
             الصلاة القادمة: <b className="text-[#D4AF37]">{nextPrayer.name}</b> بعد {Math.floor(nextPrayer.in / 60)}س و {nextPrayer.in % 60}د
@@ -232,9 +216,7 @@ export function PrayerTimes() {
         )}
       </div>
 
-      {loading && <p className="text-muted-foreground">جاري تحميل أوقات الصلاة...</p>}
-      {errorMsg && <p className="text-red-500 text-sm">{errorMsg}</p>}
-
+      {loading && <p className="text-muted-foreground">جاري التحميل...</p>}
       {prayers && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(prayers).map(([k, v]) => (
@@ -255,16 +237,38 @@ export function PrayerTimes() {
 export function HijriDate() {
   const now = new Date();
   const h = toHijri(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  const months = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
+  const months = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
+
   return (
-    <div className="text-center py-8">
-      <div className="text-6xl md:text-8xl font-bold text-[#D4AF37]">
-        {toArabicDigits(h.hd)}
+    <div className="max-w-3xl mx-auto py-6 px-4 space-y-6" dir="rtl">
+      
+      {/* 1. أداة التحويل كعنصر أساسي في الأعلى */}
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 p-6 sm:p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">تحويل التاريخ</h2>
+          <p className="text-sm text-gray-500 mt-1">التحويل بدقة بين التقويم الهجري والميلادي</p>
+        </div>
+        <DateConvert />
       </div>
-      <div className="text-2xl md:text-3xl font-semibold mt-2">
-        {months[h.hm - 1]} {toArabicDigits(h.hy)} هـ
+
+      {/* 2. بطاقة مصغرة لتاريخ اليوم الهجري */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-100 dark:border-gray-800 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 font-bold text-lg">
+            📅
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 dark:text-gray-400 block">تاريخ اليوم هجري</span>
+            <span className="text-base font-bold text-gray-900 dark:text-white">
+              {toArabicDigits(h.hd)} {months[h.hm - 1]} {toArabicDigits(h.hy)} هـ
+            </span>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
+          الموافق: {now.toLocaleDateString('ar-SA')} م
+        </div>
       </div>
-      <div className="mt-4 text-muted-foreground">الموافق {now.toLocaleDateString('ar-SA')}</div>
+
     </div>
   );
 }
@@ -275,7 +279,7 @@ export function DateConvert() {
   const [gy, setGy] = useState(today.getFullYear()), [gm, setGm] = useState(today.getMonth() + 1), [gd, setGd] = useState(today.getDate());
   const initH = toHijri(today.getFullYear(), today.getMonth() + 1, today.getDate());
   const [hy, setHy] = useState(initH.hy), [hm, setHm] = useState(initH.hm), [hd, setHd] = useState(initH.hd);
-
+  
   let result = '';
   try {
     if (mode === 'g2h') {
@@ -283,30 +287,60 @@ export function DateConvert() {
       result = `${toArabicDigits(h.hd)} / ${toArabicDigits(h.hm)} / ${toArabicDigits(h.hy)} هـ`;
     } else {
       const g = toGregorian(+hy, +hm, +hd);
-      result = `${g.gd} / ${g.gm} / ${g.gy} م`;
+      result = `${toArabicDigits(g.gd)} / ${toArabicDigits(g.gm)} / ${toArabicDigits(g.gy)} م`;
     }
   } catch { result = 'تاريخ غير صحيح'; }
 
   return (
-    <div className="space-y-5">
-      <Select testid="dc-mode" value={mode} onChange={(e) => setMode(e.target.value)}>
-        <option value="g2h">ميلادي → هجري</option>
-        <option value="h2g">هجري → ميلادي</option>
-      </Select>
-      {mode === 'g2h' ? (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Input testid="dc-gd" label="اليوم" type="number" value={gd} onChange={(e) => setGd(e.target.value)} />
-          <Input testid="dc-gm" label="الشهر" type="number" value={gm} onChange={(e) => setGm(e.target.value)} />
-          <Input testid="dc-gy" label="السنة" type="number" value={gy} onChange={(e) => setGy(e.target.value)} />
+    <div className="max-w-2xl mx-auto p-4 sm:p-6" dir="rtl">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 p-6 sm:p-8 space-y-6">
+        
+        {/* أزرار التبديل بتصميم عصري */}
+        <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1.5">
+          <button
+            type="button"
+            onClick={() => setMode('g2h')}
+            className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all ${
+              mode === 'g2h'
+                ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            ميلادي إلى هجري
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('h2g')}
+            className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all ${
+              mode === 'h2g'
+                ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            هجري إلى ميلادي
+          </button>
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Input testid="dc-hd" label="اليوم" type="number" value={hd} onChange={(e) => setHd(e.target.value)} />
-          <Input testid="dc-hm" label="الشهر" type="number" value={hm} onChange={(e) => setHm(e.target.value)} />
-          <Input testid="dc-hy" label="السنة" type="number" value={hy} onChange={(e) => setHy(e.target.value)} />
+
+        {/* حقول الإدخال */}
+        {mode === 'g2h' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input testid="dc-gd" label="اليوم" type="number" value={gd} onChange={(e) => setGd(e.target.value)} />
+            <Input testid="dc-gm" label="الشهر" type="number" value={gm} onChange={(e) => setGm(e.target.value)} />
+            <Input testid="dc-gy" label="السنة" type="number" value={gy} onChange={(e) => setGy(e.target.value)} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input testid="dc-hd" label="اليوم" type="number" value={hd} onChange={(e) => setHd(e.target.value)} />
+            <Input testid="dc-hm" label="الشهر" type="number" value={hm} onChange={(e) => setHm(e.target.value)} />
+            <Input testid="dc-hy" label="السنة" type="number" value={hy} onChange={(e) => setHy(e.target.value)} />
+          </div>
+        )}
+
+        {/* صندوق النتيجة */}
+        <div className="pt-2">
+          <ResultBox testid="dc-result" label="النتيجة" value={result} />
         </div>
-      )}
-      <ResultBox testid="dc-result" label="النتيجة" value={result} />
+      </div>
     </div>
   );
 }
@@ -426,6 +460,7 @@ export function Qibla() {
 export function RamadanCountdown() {
   const now = new Date();
   const h = toHijri(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  // Next Ramadan 1
   let year = h.hy;
   if (h.hm > 9 || (h.hm === 9 && h.hd > 0)) year++;
   const next = toGregorian(year, 9, 1);
