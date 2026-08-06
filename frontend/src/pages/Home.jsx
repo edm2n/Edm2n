@@ -3,39 +3,43 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { TOOLS, CATEGORIES, TOOL_MAP } from '../lib/toolsRegistry';
 import { ToolCard, getMostUsedSlugs } from '../lib/ui';
-import { Search, Sparkles, TrendingUp, Award, Newspaper, Calendar as CalIcon } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Award, Newspaper, Calendar as CalIcon, BookOpen } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 function ArticleCard({ page, index }) {
-  return (
-    <Link
-      to={`/p/${page.slug}`}
-      data-testid={`article-card-${page.slug}`}
-      className="card-lift fade-in-up group block rounded-2xl border border-border bg-card overflow-hidden"
-      style={{ animationDelay: `${(index % 6) * 50}ms` }}
-    >
-      {page.image ? (
-        <div className="relative h-32 overflow-hidden bg-muted">
-          <img src={page.image} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => e.target.style.display = 'none'} />
-        </div>
-      ) : (
-        <div className="h-32 bg-gradient-to-br from-[#D4AF37]/20 to-transparent grid place-items-center">
-          <Newspaper className="h-8 w-8 text-[#D4AF37]/60" />
+return (
+  <Link
+    to={`/p/${page.slug}`}
+    data-testid={`article-card-${page.slug}`}
+    className="card-lift fade-in-up group block rounded-2xl border border-border bg-card overflow-hidden"
+    style={{ animationDelay: `${(index % 6) * 50}ms` }}
+  >
+    {/* حاوية الصورة في الأعلى بعرض كامل وارتفاع 50 بكسل */}
+{page.image ? (
+  <div className="w-full h-[75px] overflow-hidden bg-muted">
+    <img src={page.image} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+  </div>
+) : (
+  <div className="w-full h-[75px] bg-gradient-to-br from-[#D4AF37]/20 to-transparent grid place-items-center">
+    <Newspaper className="h-5 w-5 text-[#D4AF37]/60" />
+  </div>
+)}
+
+    {/* محتوى المقال (العنوان والنص والتاريخ) بالأسفل */}
+    <div className="p-4 text-right space-y-1.5">
+      <h3 className="font-bold text-sm group-hover:text-[#D4AF37] transition-colors line-clamp-2">{page.title}</h3>
+      {page.excerpt && <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">{page.excerpt}</p>}
+      
+      {page.created_at && (
+        <div className="pt-2 mt-2 border-t border-border/40 text-[11px] text-muted-foreground flex items-center gap-1">
+          <span>📅</span>
+          <span>{new Date(page.created_at).toLocaleDateString('ar-SA')}</span>
         </div>
       )}
-      <div className="p-4">
-        <h3 className="font-bold text-sm group-hover:text-[#D4AF37] transition-colors line-clamp-2">{page.title}</h3>
-        {page.excerpt && <p className="mt-1.5 text-xs text-muted-foreground line-clamp-1 leading-relaxed">{page.excerpt}</p>}
-        {page.created_at && (
-          <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <CalIcon className="h-3 w-3" />
-            {new Date(page.created_at).toLocaleDateString('ar-SA')}
-          </div>
-        )}
-      </div>
-    </Link>
-  );
+    </div>
+  </Link>
+);
 }
 
 export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
@@ -43,7 +47,17 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
   const [articles, setArticles] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/pages`).then((r) => setArticles(r.data || [])).catch(() => {});
+    // جلب المقالات من المسار العام مع دعم مسار الأدمن كبديل لضمان ظهور المقالات دائماً
+    axios.get(`${API}/pages`)
+      .then((r) => {
+        const list = r.data || [];
+        setArticles(list);
+      })
+      .catch(() => {
+        axios.get(`${API}/admin/pages`)
+          .then((r) => setArticles(r.data || []))
+          .catch(() => {});
+      });
   }, []);
 
   const visibleTools = useMemo(() => {
@@ -54,18 +68,18 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
   }, [toolOverrides]);
 
   const mostUsed = useMemo(() => {
-    const slugs = getMostUsedSlugs(2);
+    const slugs = getMostUsedSlugs(6);
     return slugs.map((s) => TOOL_MAP[s]).filter(Boolean);
   }, []);
 
   const editorPicks = useMemo(() => {
     const picks = (siteConfig?.editor_picks || []).map((s) => TOOL_MAP[s]).filter(Boolean);
-    if (picks.length) return picks.slice(0, 2);
-    return ['zakat', 'prayer-times'].map((s) => TOOL_MAP[s]).filter(Boolean);
+    if (picks.length) return picks.slice(0, 6); 
+    return ['zakat', 'prayer-times', 'bmi', 'currency', 'age', 'password'].map((s) => TOOL_MAP[s]).filter(Boolean);
   }, [siteConfig]);
 
   const latestArticles = useMemo(() => {
-    return articles.slice(0, 2);
+    return articles.slice(0, 6);
   }, [articles]);
 
   return (
@@ -102,14 +116,25 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
 
       {/* شريط التصنيفات والأقسام في الأعلى */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3 mb-6">
           <button
             data-testid="cat-all"
             onClick={() => navigate('/tools')}
-            className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors border border-border bg-background text-foreground hover:border-[#D4AF37] shadow-sm"
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-sm font-medium transition-colors border border-border bg-background text-foreground hover:border-[#D4AF37] shadow-sm"
           >
             الكل ({visibleTools.length})
           </button>
+
+          {/* زر قسم المقالات والبرامج */}
+          <button
+            data-testid="cat-articles"
+            onClick={() => navigate('/articles')}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-sm font-bold transition-all border border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black shadow-sm"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="truncate">المقالات</span> ({articles.length})
+          </button>
+
           {Object.values(CATEGORIES).map((c) => {
             const count = visibleTools.filter((t) => t.category === c.id).length;
             const Icon = c.icon;
@@ -118,7 +143,7 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
                 key={c.id}
                 data-testid={`cat-${c.id}`}
                 onClick={() => navigate(`/category/${c.id}`)}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors border border-border bg-background text-foreground hover:border-[#D4AF37] shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-sm font-medium transition-colors border border-border bg-background text-foreground hover:border-[#D4AF37] shadow-sm"
               >
                 <Icon className="h-4 w-4 text-[#D4AF37]" />
                 <span className="truncate">{c.name}</span> ({count})
@@ -128,7 +153,7 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
         </div>
       </section>
 
-      {/* الأقسام الثلاثة بجانب بعضها البعض */}
+      {/* الأقسام الثلاثة الرئيسية */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
@@ -145,9 +170,16 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
           </div>
 
           <div data-testid="section-articles" className="space-y-4">
-            <div className="flex items-center gap-2 border-b border-border/60 pb-2">
-              <Newspaper className="h-5 w-5 text-[#D4AF37]" />
-              <h2 className="text-lg font-bold">آخر المقالات</h2>
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2">
+                <Newspaper className="h-5 w-5 text-[#D4AF37]" />
+                <h2 className="text-lg font-bold">آخر المقالات</h2>
+              </div>
+              {articles.length > 6 && (
+                <Link to="/articles" className="text-xs text-[#D4AF37] hover:underline font-medium">
+                  عرض الكل ({articles.length})
+                </Link>
+              )}
             </div>
             <div className="space-y-3">
               {latestArticles.length > 0 ? (
@@ -155,7 +187,7 @@ export default function Home({ onOpenSearch, siteConfig, toolOverrides }) {
                   <ArticleCard key={a.slug} page={a} index={i} />
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground">لا توجد مقالات متاحة حالياً</p>
+                <p className="text-xs text-muted-foreground text-center py-6">لا توجد مقالات متاحة حالياً</p>
               )}
             </div>
           </div>
