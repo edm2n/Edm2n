@@ -4,5 +4,12 @@
   "outputDirectory": "frontend/build",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://www.edm2n.com/$1",
+      "permanent": true
+    }
   ]
 }
