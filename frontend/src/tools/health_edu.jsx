@@ -49,24 +49,144 @@ export function Calories() {
 }
 
 export function Pregnancy() {
-  const [lmp, setLmp] = useState('');
-  const lmpDate = lmp ? new Date(lmp) : null;
-  const now = new Date();
-  let weeks = 0, days = 0, edd = null;
-  if (lmpDate && !isNaN(lmpDate)) {
-    const diff = now - lmpDate;
-    const totalDays = Math.floor(diff / (1000 * 60 * 60 * 24));
-    weeks = Math.floor(totalDays / 7);
-    days = totalDays % 7;
-    edd = new Date(lmpDate); edd.setDate(edd.getDate() + 280);
-  }
+  const [calcType, setCalcType] = useState('gregorian');
+  const [gDay, setGDay] = useState(new Date().getDate());
+  const [gMonth, setGMonth] = useState(new Date().getMonth() + 1);
+  const [gYear, setGYear] = useState(new Date().getFullYear());
+
+  const [hDay, setHDay] = useState(1);
+  const [hMonth, setHMonth] = useState(1);
+  const [hYear, setHYear] = useState(1447);
+
+  const [result, setResult] = useState(null);
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const gMonths = [
+    { value: 1, name: 'يناير' }, { value: 2, name: 'فبراير' },
+    { value: 3, name: 'مارس' }, { value: 4, name: 'أبريل' },
+    { value: 5, name: 'مايو' }, { value: 6, name: 'يونيو' },
+    { value: 7, name: 'يوليو' }, { value: 8, name: 'أغسطس' },
+    { value: 9, name: 'سبتمبر' }, { value: 10, name: 'أكتوبر' },
+    { value: 11, name: 'نوفمبر' }, { value: 12, name: 'ديسمبر' }
+  ];
+  const hMonths = [
+    { value: 1, name: 'محرم' }, { value: 2, name: 'صفر' },
+    { value: 3, name: 'ربيع الأول' }, { value: 4, name: 'ربيع الثاني' },
+    { value: 5, name: 'جمادى الأولى' }, { value: 6, name: 'جمادى الآخرة' },
+    { value: 7, name: 'رجب' }, { value: 8, name: 'شعبان' },
+    { value: 9, name: 'رمضان' }, { value: 10, name: 'شوال' },
+    { value: 11, name: 'ذو القعدة' }, { value: 12, name: 'ذو الحجة' }
+  ];
+  const gYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  const hYears = Array.from({ length: 5 }, (_, i) => 1446 + i);
+
+  const calculatePregnancy = () => {
+    let lmpDate;
+    const today = new Date();
+
+    if (calcType === 'gregorian') {
+      lmpDate = new Date(gYear, gMonth - 1, gDay);
+    } else {
+      const approximateDays = ((hYear - 1446) * 354) + ((hMonth - 1) * 29.5) + hDay;
+      lmpDate = new Date(2025, 5, 26);
+      lmpDate.setDate(lmpDate.getDate() + approximateDays);
+    }
+
+    let dueDate = new Date(lmpDate);
+    dueDate.setDate(dueDate.getDate() + 280);
+
+    const diffTime = today - lmpDate;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      setResult({ error: 'تاريخ آخر دورة مدخل غير صحيح (في المستقبل)' });
+      return;
+    }
+
+    const weeks = Math.floor(diffDays / 7);
+    const daysRemaining = diffDays % 7;
+    const currentMonth = Math.min(9, Math.floor(weeks / 4.33) + 1);
+
+    setResult({
+      dueDate: dueDate.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }),
+      weeks,
+      daysRemaining,
+      currentMonth,
+      progress: Math.min(100, Math.round((weeks / 40) * 100))
+    });
+  };
+
   return (
     <div className="space-y-5">
-      <Input testid="pg-lmp" label="أول يوم لآخر دورة" type="date" value={lmp} onChange={(e) => setLmp(e.target.value)} />
-      {lmpDate && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ResultBox label="عمر الحمل" value={`${toArabicDigits(weeks)} أسبوع و ${toArabicDigits(days)} يوم`} testid="pg-age" />
-          <ResultBox label="تاريخ الولادة المتوقع" value={edd?.toLocaleDateString('ar-SA')} testid="pg-edd" />
+      <div className="flex justify-center gap-3 mb-2">
+        <button
+          type="button"
+          onClick={() => setCalcType('gregorian')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            calcType === 'gregorian' ? 'bg-[#D4AF37] text-black shadow-md' : 'bg-background border border-border text-foreground'
+          }`}
+        >
+          التاريخ الميلادي
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalcType('hijri')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            calcType === 'hijri' ? 'bg-[#D4AF37] text-black shadow-md' : 'bg-background border border-border text-foreground'
+          }`}
+        >
+          التاريخ الهجري
+        </button>
+      </div>
+
+      <div className="text-center font-medium text-foreground text-sm">أول يوم لآخر دورة شهرية:</div>
+
+      {calcType === 'gregorian' ? (
+        <div className="grid grid-cols-3 gap-3">
+          <Select label="اليوم" value={gDay} onChange={(e) => setGDay(Number(e.target.value))}>
+            {days.map(d => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label="الشهر" value={gMonth} onChange={(e) => setGMonth(Number(e.target.value))}>
+            {gMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+          </Select>
+          <Select label="السنة" value={gYear} onChange={(e) => setGYear(Number(e.target.value))}>
+            {gYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <Select label="اليوم" value={hDay} onChange={(e) => setHDay(Number(e.target.value))}>
+            {days.map(d => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label="الشهر" value={hMonth} onChange={(e) => setHMonth(Number(e.target.value))}>
+            {hMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+          </Select>
+          <Select label="السنة" value={hYear} onChange={(e) => setHYear(Number(e.target.value))}>
+            {hYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
+        </div>
+      )}
+
+      <div className="pt-2 text-center">
+        <Button onClick={calculatePregnancy} variant="gold" className="w-full sm:w-auto px-8 py-2.5 text-base">
+          حساب الحمل
+        </Button>
+      </div>
+
+      {result && !result.error && (
+        <div className="space-y-4 mt-4">
+          <ResultBox label="تاريخ الولادة المتوقع" value={result.dueDate} testid="pg-edd" />
+          <div className="grid gap-3 sm:grid-cols-3 text-center">
+            <ResultBox label="عمر الحمل" value={`${toArabicDigits(result.weeks)} أسبوع و ${toArabicDigits(result.daysRemaining)} يوم`} testid="pg-age" />
+            <ResultBox label="الشهر الحالي" value={`الشهر ${toArabicDigits(result.currentMonth)}`} testid="pg-month" />
+            <ResultBox label="نسبة الإنجاز" value={`${toArabicDigits(result.progress)}%`} testid="pg-progress" />
+          </div>
+        </div>
+      )}
+
+      {result && result.error && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-center text-sm">
+          {result.error}
         </div>
       )}
     </div>
@@ -74,27 +194,111 @@ export function Pregnancy() {
 }
 
 export function Ovulation() {
-  const [lmp, setLmp] = useState(''), [cycle, setCycle] = useState('28');
-  const lmpDate = lmp ? new Date(lmp) : null;
-  let ov = null, fs = null, fe = null;
-  if (lmpDate) {
-    ov = new Date(lmpDate); ov.setDate(ov.getDate() + num(cycle) - 14);
-    fs = new Date(ov); fs.setDate(fs.getDate() - 5);
-    fe = new Date(ov); fe.setDate(fe.getDate() + 1);
+  const [calcType, setCalcType] = useState('gregorian');
+  const [gDay, setGDay] = useState(new Date().getDate());
+  const [gMonth, setGMonth] = useState(new Date().getMonth() + 1);
+  const [gYear, setGYear] = useState(new Date().getFullYear());
+
+  const [hDay, setHDay] = useState(1);
+  const [hMonth, setHMonth] = useState(1);
+  const [hYear, setHYear] = useState(1447);
+
+  const [cycle, setCycle] = useState('28');
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const gMonths = [
+    { value: 1, name: 'يناير' }, { value: 2, name: 'فبراير' },
+    { value: 3, name: 'مارس' }, { value: 4, name: 'أبريل' },
+    { value: 5, name: 'مايو' }, { value: 6, name: 'يونيو' },
+    { value: 7, name: 'يوليو' }, { value: 8, name: 'أغسطس' },
+    { value: 9, name: 'سبتمبر' }, { value: 10, name: 'أكتوبر' },
+    { value: 11, name: 'نوفمبر' }, { value: 12, name: 'ديسمبر' }
+  ];
+  const hMonths = [
+    { value: 1, name: 'محرم' }, { value: 2, name: 'صفر' },
+    { value: 3, name: 'ربيع الأول' }, { value: 4, name: 'ربيع الثاني' },
+    { value: 5, name: 'جمادى الأولى' }, { value: 6, name: 'جمادى الآخرة' },
+    { value: 7, name: 'رجب' }, { value: 8, name: 'شعبان' },
+    { value: 9, name: 'رمضان' }, { value: 10, name: 'شوال' },
+    { value: 11, name: 'ذو القعدة' }, { value: 12, name: 'ذو الحجة' }
+  ];
+  const gYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  const hYears = Array.from({ length: 5 }, (_, i) => 1446 + i);
+
+  let lmpDate;
+  if (calcType === 'gregorian') {
+    lmpDate = new Date(gYear, gMonth - 1, gDay);
+  } else {
+    const approximateDays = ((hYear - 1446) * 354) + ((hMonth - 1) * 29.5) + hDay;
+    lmpDate = new Date(2025, 5, 26);
+    lmpDate.setDate(lmpDate.getDate() + approximateDays);
   }
+
+  let ov = new Date(lmpDate);
+  ov.setDate(ov.getDate() + num(cycle) - 14);
+  let fs = new Date(ov);
+  fs.setDate(fs.getDate() - 5);
+  let fe = new Date(ov);
+  fe.setDate(fe.getDate() + 1);
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input testid="ov-lmp" label="أول يوم لآخر دورة" type="date" value={lmp} onChange={(e) => setLmp(e.target.value)} />
-        <Input testid="ov-cycle" label="طول الدورة (أيام)" type="number" value={cycle} onChange={(e) => setCycle(e.target.value)} />
+      <div className="flex justify-center gap-3 mb-2">
+        <button
+          type="button"
+          onClick={() => setCalcType('gregorian')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            calcType === 'gregorian' ? 'bg-[#D4AF37] text-black shadow-md' : 'bg-background border border-border text-foreground'
+          }`}
+        >
+          التاريخ الميلادي
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalcType('hijri')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            calcType === 'hijri' ? 'bg-[#D4AF37] text-black shadow-md' : 'bg-background border border-border text-foreground'
+          }`}
+        >
+          التاريخ الهجري
+        </button>
       </div>
-      {ov && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <ResultBox label="يوم التبويض" value={ov.toLocaleDateString('ar-SA')} testid="ov-day" />
-          <ResultBox label="بداية فترة الخصوبة" value={fs.toLocaleDateString('ar-SA')} testid="ov-start" />
-          <ResultBox label="نهاية فترة الخصوبة" value={fe.toLocaleDateString('ar-SA')} testid="ov-end" />
+
+      <div className="text-center font-medium text-foreground text-sm">أول يوم لآخر دورة شهرية:</div>
+
+      {calcType === 'gregorian' ? (
+        <div className="grid grid-cols-3 gap-3">
+          <Select label="اليوم" value={gDay} onChange={(e) => setGDay(Number(e.target.value))}>
+            {days.map(d => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label="الشهر" value={gMonth} onChange={(e) => setGMonth(Number(e.target.value))}>
+            {gMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+          </Select>
+          <Select label="السنة" value={gYear} onChange={(e) => setGYear(Number(e.target.value))}>
+            {gYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <Select label="اليوم" value={hDay} onChange={(e) => setHDay(Number(e.target.value))}>
+            {days.map(d => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label="الشهر" value={hMonth} onChange={(e) => setHMonth(Number(e.target.value))}>
+            {hMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+          </Select>
+          <Select label="السنة" value={hYear} onChange={(e) => setHYear(Number(e.target.value))}>
+            {hYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
         </div>
       )}
+
+      <Input testid="ov-cycle" label="طول الدورة (أيام)" type="number" value={cycle} onChange={(e) => setCycle(e.target.value)} />
+
+      <div className="grid gap-3 sm:grid-cols-3 mt-4">
+        <ResultBox label="يوم التبويض" value={ov.toLocaleDateString('ar-SA')} testid="ov-day" />
+        <ResultBox label="بداية فترة الخصوبة" value={fs.toLocaleDateString('ar-SA')} testid="ov-start" />
+        <ResultBox label="نهاية فترة الخصوبة" value={fe.toLocaleDateString('ar-SA')} testid="ov-end" />
+      </div>
     </div>
   );
 }
@@ -268,29 +472,109 @@ export function MultiplicationTable() {
 
 // ===================== CONVERTERS =====================
 export function AgeCalc() {
-  const [dob, setDob] = useState('');
-  const d = dob ? new Date(dob) : null;
+  const [calcType, setCalcType] = useState('gregorian');
+  const [gDay, setGDay] = useState(1);
+  const [gMonth, setGMonth] = useState(1);
+  const [gYear, setGYear] = useState(2000);
+
+  const [hDay, setHDay] = useState(1);
+  const [hMonth, setHMonth] = useState(1);
+  const [hYear, setHYear] = useState(1420);
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const gMonths = [
+    { value: 1, name: 'يناير' }, { value: 2, name: 'فبراير' },
+    { value: 3, name: 'مارس' }, { value: 4, name: 'أبريل' },
+    { value: 5, name: 'مايو' }, { value: 6, name: 'يونيو' },
+    { value: 7, name: 'يوليو' }, { value: 8, name: 'أغسطس' },
+    { value: 9, name: 'سبتمبر' }, { value: 10, name: 'أكتوبر' },
+    { value: 11, name: 'نوفمبر' }, { value: 12, name: 'ديسمبر' }
+  ];
+  const hMonths = [
+    { value: 1, name: 'محرم' }, { value: 2, name: 'صفر' },
+    { value: 3, name: 'ربيع الأول' }, { value: 4, name: 'ربيع الثاني' },
+    { value: 5, name: 'جمادى الأولى' }, { value: 6, name: 'جمادى الآخرة' },
+    { value: 7, name: 'رجب' }, { value: 8, name: 'شعبان' },
+    { value: 9, name: 'رمضان' }, { value: 10, name: 'شوال' },
+    { value: 11, name: 'ذو القعدة' }, { value: 12, name: 'ذو الحجة' }
+  ];
+  const gYears = Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - 79 + i);
+  const hYears = Array.from({ length: 80 }, (_, i) => 1370 + i);
+
+  let birthDate;
   const now = new Date();
-  let y = 0, m = 0, days = 0, totalDays = 0, hours = 0;
-  if (d) {
-    totalDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
-    hours = Math.floor((now - d) / (1000 * 60 * 60));
-    y = now.getFullYear() - d.getFullYear();
-    m = now.getMonth() - d.getMonth();
-    days = now.getDate() - d.getDate();
-    if (days < 0) { m--; days += 30; }
-    if (m < 0) { y--; m += 12; }
+  if (calcType === 'gregorian') {
+    birthDate = new Date(gYear, gMonth - 1, gDay);
+  } else {
+    const approximateDays = ((hYear - 1420) * 354) + ((hMonth - 1) * 29.5) + hDay;
+    birthDate = new Date(1999, 4, 16);
+    birthDate.setDate(birthDate.getDate() + approximateDays);
   }
+
+  let totalDays = Math.max(0, Math.floor((now - birthDate) / (1000 * 60 * 60 * 24)));
+  let hours = Math.max(0, Math.floor((now - birthDate) / (1000 * 60 * 60)));
+  let y = now.getFullYear() - birthDate.getFullYear();
+  let m = now.getMonth() - birthDate.getMonth();
+  let dCount = now.getDate() - birthDate.getDate();
+  if (dCount < 0) { m--; dCount += 30; }
+  if (m < 0) { y--; m += 12; }
+
   return (
     <div className="space-y-5">
-      <Input testid="ac-dob" type="date" label="تاريخ الميلاد" value={dob} onChange={(e) => setDob(e.target.value)} />
-      {d && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <ResultBox label="العمر" value={`${y} سنة، ${m} شهر، ${days} يوم`} testid="ac-full" />
-          <ResultBox label="بالأيام" value={`${totalDays.toLocaleString()} يوم`} testid="ac-days" />
-          <ResultBox label="بالساعات" value={`${hours.toLocaleString()} ساعة`} testid="ac-hours" />
+      <div className="flex justify-center gap-3 mb-2">
+        <button
+          type="button"
+          onClick={() => setCalcType('gregorian')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            calcType === 'gregorian' ? 'bg-[#D4AF37] text-black shadow-md' : 'bg-background border border-border text-foreground'
+          }`}
+        >
+          التاريخ الميلادي
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalcType('hijri')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            calcType === 'hijri' ? 'bg-[#D4AF37] text-black shadow-md' : 'bg-background border border-border text-foreground'
+          }`}
+        >
+          التاريخ الهجري
+        </button>
+      </div>
+
+      <div className="text-center font-medium text-foreground text-sm">تاريخ الميلاد:</div>
+
+      {calcType === 'gregorian' ? (
+        <div className="grid grid-cols-3 gap-3">
+          <Select label="اليوم" value={gDay} onChange={(e) => setGDay(Number(e.target.value))}>
+            {days.map(d => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label="الشهر" value={gMonth} onChange={(e) => setGMonth(Number(e.target.value))}>
+            {gMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+          </Select>
+          <Select label="السنة" value={gYear} onChange={(e) => setGYear(Number(e.target.value))}>
+            {gYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <Select label="اليوم" value={hDay} onChange={(e) => setHDay(Number(e.target.value))}>
+            {days.map(d => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label="الشهر" value={hMonth} onChange={(e) => setHMonth(Number(e.target.value))}>
+            {hMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+          </Select>
+          <Select label="السنة" value={hYear} onChange={(e) => setHYear(Number(e.target.value))}>
+            {hYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
         </div>
       )}
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-4">
+        <ResultBox label="العمر" value={`${y} سنة، ${m} شهر، ${dCount} يوم`} testid="ac-full" />
+        <ResultBox label="بالأيام" value={`${totalDays.toLocaleString()} يوم`} testid="ac-days" />
+        <ResultBox label="بالساعات" value={`${hours.toLocaleString()} ساعة`} testid="ac-hours" />
+      </div>
     </div>
   );
 }
@@ -348,7 +632,7 @@ export function UnitsConvert() {
 
 export function ArabicNumbers() {
   const [t, setT] = useState('12345');
-  const ar = String(t).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d]);
+  const ar = String(t).replace(/[0-9]/g, (d) => '٠١ي٢٣٤٥٦٧٨٩'[+d]);
   const en = String(t).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
   return (
     <div className="space-y-5">
@@ -373,22 +657,63 @@ export function NumberToWords() {
 }
 
 export function TimeDiff() {
-  const [t1, setT1] = useState(''), [t2, setT2] = useState('');
-  let diff = null;
-  if (t1 && t2) {
-    const d = Math.abs(new Date(t2) - new Date(t1));
-    const days = Math.floor(d / 86400000);
-    const hours = Math.floor((d / 3600000) % 24);
-    const mins = Math.floor((d / 60000) % 60);
-    diff = `${days} يوم، ${hours} ساعة، ${mins} دقيقة`;
-  }
+  const [d1, setD1] = useState(new Date().getDate());
+  const [m1, setM1] = useState(new Date().getMonth() + 1);
+  const [y1, setY1] = useState(new Date().getFullYear());
+
+  const [d2, setD2] = useState(new Date().getDate());
+  const [m2, setM2] = useState(new Date().getMonth() + 1);
+  const [y2, setY2] = useState(new Date().getFullYear() + 1);
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const gMonths = [
+    { value: 1, name: 'يناير' }, { value: 2, name: 'فبراير' },
+    { value: 3, name: 'مارس' }, { value: 4, name: 'أبريل' },
+    { value: 5, name: 'مايو' }, { value: 6, name: 'يونيو' },
+    { value: 7, name: 'يوليو' }, { value: 8, name: 'أغسطس' },
+    { value: 9, name: 'سبتمبر' }, { value: 10, name: 'أكتوبر' },
+    { value: 11, name: 'نوفمبر' }, { value: 12, name: 'ديسمبر' }
+  ];
+  const gYears = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i);
+
+  const date1 = new Date(y1, m1 - 1, d1);
+  const date2 = new Date(y2, m2 - 1, d2);
+  const diffTime = Math.abs(date2 - date1);
+  const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const months = Math.floor(totalDays / 30);
+  const remainingDays = totalDays % 30;
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input testid="td-t1" type="datetime-local" label="الوقت الأول" value={t1} onChange={(e) => setT1(e.target.value)} />
-        <Input testid="td-t2" type="datetime-local" label="الوقت الثاني" value={t2} onChange={(e) => setT2(e.target.value)} />
+      <div className="text-center font-medium text-foreground text-sm">التاريخ الأول:</div>
+      <div className="grid grid-cols-3 gap-3">
+        <Select label="اليوم" value={d1} onChange={(e) => setD1(Number(e.target.value))}>
+          {days.map(d => <option key={d} value={d}>{d}</option>)}
+        </Select>
+        <Select label="الشهر" value={m1} onChange={(e) => setM1(Number(e.target.value))}>
+          {gMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+        </Select>
+        <Select label="السنة" value={y1} onChange={(e) => setY1(Number(e.target.value))}>
+          {gYears.map(y => <option key={y} value={y}>{y}</option>)}
+        </Select>
       </div>
-      {diff && <ResultBox label="الفرق" value={diff} testid="td-result" />}
+
+      <div className="text-center font-medium text-foreground text-sm mt-4">التاريخ الثاني:</div>
+      <div className="grid grid-cols-3 gap-3">
+        <Select label="اليوم" value={d2} onChange={(e) => setD2(Number(e.target.value))}>
+          {days.map(d => <option key={d} value={d}>{d}</option>)}
+        </Select>
+        <Select label="الشهر" value={m2} onChange={(e) => setM2(Number(e.target.value))}>
+          {gMonths.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+        </Select>
+        <Select label="السنة" value={y2} onChange={(e) => setY2(Number(e.target.value))}>
+          {gYears.map(y => <option key={y} value={y}>{y}</option>)}
+        </Select>
+      </div>
+
+      <div className="mt-4">
+        <ResultBox label="الفرق الزمني" value={`${totalDays} يوم (${months} شهر و ${remainingDays} يوم)`} testid="td-result" />
+      </div>
     </div>
   );
 }
