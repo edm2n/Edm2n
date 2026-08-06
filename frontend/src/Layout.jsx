@@ -139,6 +139,38 @@ export function Header({ onOpenContact, onOpenSearch }) {
 }
 
 export function Footer({ onOpenContact }) {
+  // 1. قراءة النص المحفوظ من LocalStorage
+  const [footerText, setFooterText] = useState(() => {
+    try {
+      const savedConfig = localStorage.getItem('site_config');
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        if (config.footer_text) return config.footer_text;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return `جميع الحقوق محفوظة © ${new Date().getFullYear()}`;
+  });
+
+  // 2. تحديث النص تلقائياً عند الحفظ من لوحة التحكم
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const savedConfig = localStorage.getItem('site_config');
+        if (savedConfig) {
+          const config = JSON.parse(savedConfig);
+          if (config.footer_text) setFooterText(config.footer_text);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   return (
     <footer className="mt-20 border-t border-border/60 bg-card/40">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
@@ -172,16 +204,6 @@ export function Footer({ onOpenContact }) {
             <h4 className="text-sm font-semibold mb-3">تواصل</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a data-testid="footer-twitter" href="https://twitter.com/edm2n" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-[#D4AF37]">
-                  تويتر: @edm2n
-                </a>
-              </li>
-              <li>
-                <a data-testid="footer-email" href="mailto:edm2n@msn.com" className="text-muted-foreground hover:text-[#D4AF37]">
-                  edm2n@msn.com
-                </a>
-              </li>
-              <li>
                 <button data-testid="footer-contact-open" onClick={onOpenContact} className="text-muted-foreground hover:text-[#D4AF37]">
                   اتصل بنا
                 </button>
@@ -190,9 +212,10 @@ export function Footer({ onOpenContact }) {
           </div>
         </div>
 
+        {/* سطر الحقوق السفلي الديناميكي */}
         <div className="mt-10 border-t border-border/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            جميع الحقوق محفوظة © {new Date().getFullYear()}
+            {footerText}
           </p>
           <p className="text-sm text-muted-foreground">
             برمجة وتصميم{' '}
