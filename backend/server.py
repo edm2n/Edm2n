@@ -24,16 +24,16 @@ load_dotenv(ROOT_DIR / '.env')
 
 # --- Configurations ---
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "0bafe1f9f1ce74a9661408b796a122889891b657ba6e3d18a6caedb06508cef1")
-DEFAULT_VOICE_ID = os.environ.get('DEFAULT_VOICE_ID', '21m00Tcm4TlvDq8ikWAM')
-MONGO_URL = os.environ['MONGO_URL']
-DB_NAME = os.environ['DB_NAME']
-ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Matar@2026')
-JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
-REMOVE_BG_API_KEY = os.environ.get("REMOVE_BG_API_KEY", "")
-FETCH_TIMEOUT_CONNECT = float(os.environ.get("FETCH_TIMEOUT_CONNECT", "15"))
-FETCH_TIMEOUT_READ = float(os.environ.get("FETCH_TIMEOUT_READ", "60"))
+DEFAULT_VOICE_ID = os.getenv('DEFAULT_VOICE_ID', '21m00Tcm4TlDvq8ikWAM')
+MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://m6rgame_db_user:Matar2026@cluster0.8vg0pnm.mongodb.net/edm2n?appName=Cluster0')
+DB_NAME = os.getenv('DB_NAME', 'edm2n')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'Matar@2026')
+JWT_SECRET = os.getenv('JWT_SECRET', 'matar-dalil-jwt-secret-2026-change-me')
+EMERGENT_LLM_KEY = os.getenv('EMERGENT_LLM_KEY', '')
+REMOVE_BG_API_KEY = os.getenv("REMOVE_BG_API_KEY", "")
+FETCH_TIMEOUT_CONNECT = float(os.getenv("FETCH_TIMEOUT_CONNECT", "15"))
+FETCH_TIMEOUT_READ = float(os.getenv("FETCH_TIMEOUT_READ", "60"))
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
