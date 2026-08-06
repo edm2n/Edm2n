@@ -41,7 +41,7 @@ export default function DamanCalculator() {
       {/* رأس الصفحة الداخلي مع العنوان وأيقونة درع الحماية المناسبة */}
       <div className="flex items-center justify-between gap-4 pb-6 mb-6 border-b border-border">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">حاسبة الضمان المطور</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">حاسبة الضمان الاجتماعي المطور</h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             احسب استحقاقك التقديري في الضمان الاجتماعي المطور بناء على الدخل وعدد أفراد الأسرة
           </p>
