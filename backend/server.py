@@ -588,10 +588,13 @@ async def smart_fetch_save(body: SmartFetchSaveBody, _: str = Depends(verify_adm
 # Include the router to the main app
 app.include_router(api_router)
 
+origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=origins or ["https://edm2n.vercel.app"],
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
