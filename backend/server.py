@@ -1,4 +1,5 @@
 import os
+import secrets
 import io
 import re
 import unicodedata
@@ -362,9 +363,11 @@ async def ai_tashkeel(req: TashkeelRequest):
 
 @api_router.post("/admin/login")
 async def admin_login(body: LoginBody):
-    if body.username != ADMIN_USERNAME or body.password != ADMIN_PASSWORD:
+    user_ok = secrets.compare_digest(body.username.strip(), ADMIN_USERNAME)
+    pass_ok = secrets.compare_digest(body.password.strip(), ADMIN_PASSWORD)
+    if not (user_ok and pass_ok):
         raise HTTPException(status_code=401, detail="بيانات الدخول غير صحيحة")
-    return {"token": make_token(body.username)}
+    return {"token": make_token(ADMIN_USERNAME)}
 
 @api_router.get("/admin/verify")
 async def admin_verify(_: str = Depends(verify_admin)):
