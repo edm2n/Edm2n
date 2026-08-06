@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { TOOLS, CATEGORIES } from '../lib/toolsRegistry';
 import { ToolCard } from '../lib/ui';
-import { ArrowRight } from 'lucide-react';
+import { ChevronLeft, Home } from 'lucide-react';
 
 export default function CategoryPage({ toolOverrides, isAll }) {
   const { id } = useParams();
@@ -26,10 +26,26 @@ export default function CategoryPage({ toolOverrides, isAll }) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+      
+      {/* مسار التنقل (Breadcrumbs) */}
+      <nav aria-label="مسار التنقل" className="flex items-center text-sm text-muted-foreground mb-6">
+        <ol className="flex items-center space-x-2 space-x-reverse">
+          <li className="flex items-center">
+            <Link to="/" className="hover:text-[#D4AF37] transition-colors flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5" />
+              الرئيسية
+            </Link>
+          </li>
+          <li className="flex items-center">
+            <ChevronLeft className="w-4 h-4 mx-2 text-muted-foreground/50" />
+            <span className="font-medium text-[#D4AF37]" aria-current="page">
+              {currentCategory.name}
+            </span>
+          </li>
+        </ol>
+      </nav>
+
       <div className="mb-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-[#D4AF37] transition-colors mb-4">
-          <ArrowRight className="h-4 w-4" /> العودة للرئيسية
-        </Link>
         <h1 className="text-3xl font-bold text-foreground">{currentCategory.name}</h1>
         <p className="text-sm text-muted-foreground mt-1">يحتوي هذا القسم على {filteredTools.length} أداة متاحة</p>
       </div>
