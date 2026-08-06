@@ -1,3 +1,4 @@
+// Finance tools
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input, Select, Button, ResultBox, ShareBar } from '../lib/ui';
@@ -6,199 +7,152 @@ import { num, money, tafqit } from '../lib/helpers';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function LoanBySalary() {
-  const [salary, setSalary] = useState('5913');
+  const [salary, setSalary] = useState('');
   const [obligations, setObligations] = useState('0');
-  const [sector, setSector] = useState('private'); // حكومي، عسكري، خاص
-  const [loanType, setLoanType] = useState('personal'); // personal أو realestate
   const [years, setYears] = useState('5');
-  const [bank, setBank] = useState('sabb'); // البنك الفرنسي
-  const [rate, setRate] = useState('4.25');
-
-  // قائمة البنوك السعودية مع نسب التمويل الشخصي والعقاري
-  const saudiBanks = [
-    { 
-      id: 'sabb', 
-      name: 'البنك السعودي الأول (البنك الفرنسي سابقاً - SABB)', 
-      personalRate: '4.25', 
-      realEstateRate: '4.8',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'alrajhi', 
-      name: 'مصرف الراجحي', 
-      personalRate: '4.39', 
-      realEstateRate: '4.8',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'snb', 
-      name: 'البنك الأهلي السعودي (SNB)', 
-      personalRate: '4.35', 
-      realEstateRate: '4.75',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'riyad', 
-      name: 'بنك الرياض', 
-      personalRate: '4.50', 
-      realEstateRate: '4.9',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'alinma', 
-      name: 'مصرف الإنماء', 
-      personalRate: '4.40', 
-      realEstateRate: '4.85',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'anb', 
-      name: 'البنك العربي الوطني', 
-      personalRate: '4.55', 
-      realEstateRate: '5.0',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'albilad', 
-      name: 'بنك البلاد', 
-      personalRate: '4.45', 
-      realEstateRate: '4.85',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-    { 
-      id: 'other', 
-      name: 'بنك آخر / نسبة مخصصة', 
-      personalRate: '4.50', 
-      realEstateRate: '5.0',
-      maxPersonalYears: 5,
-      maxRealEstateYears: 25 
-    },
-  ];
-
-  // تحديث النسبة تلقائياً عند تغيير البنك
-  const handleBankChange = (e) => {
-    const selectedId = e.target.value;
-    setBank(selectedId);
-    const found = saudiBanks.find(b => b.id === selectedId);
-    if (found && selectedId !== 'other') {
-      const currentRate = loanType === 'realestate' ? found.realEstateRate : found.personalRate;
-      setRate(currentRate);
-    }
-  };
-
-  // تحديث القيم عند تبديل نوع التمويل
-  const handleTypeChange = (e) => {
-    const type = e.target.value;
-    setLoanType(type);
-    const found = saudiBanks.find(b => b.id === bank);
-    
-    if (type === 'realestate') {
-      setYears('20');
-      if (found) setRate(found.realEstateRate);
-    } else {
-      setYears('5');
-      if (found) setRate(found.personalRate);
-    }
-  };
+  const [rate, setRate] = useState('6.5');
+  const [loanType, setLoanType] = useState('personal'); // 'personal' or 'realestate'
+  const [sector, setSector] = useState('government'); // 'government' or 'private'
+  const [serviceMonths, setServiceMonths] = useState('');
 
   const s = num(salary), o = num(obligations), y = num(years), r = num(rate);
-  
-  // تحديد نسبة الاستقطاع القصوى بناءً على القطاع (حسب أنظمة ساما)
-  // القطاع الخاص: 33.33% (الثلث)، القطاع الحكومي/العسكري يصل إلى 55%-65%
-  let dbrLimit = 0.3333;
-  if (sector === 'government' || sector === 'military') {
-    dbrLimit = 0.55;
+  const numService = parseInt(serviceMonths) || 0;
+
+  // تحديد نسبة الاستقطاع القصوى (DBR) بناءً على نوع التمويل والدخل حسب تعليمات ساما
+  let maxDeductionRatio = 0.3333; // التمويل الشخصي (ثلث الراتب)
+  if (loanType === 'realestate') {
+    if (s < 15000) {
+      maxDeductionRatio = 0.55;
+    } else if (s >= 15000 && s < 25000) {
+      maxDeductionRatio = 0.65;
+    } else {
+      maxDeductionRatio = 0.70; // للدخول العالية حسب الملاءمة
+    }
   }
 
-  // القسط الشهري الأقصى المسموح به بعد خصم الالتزامات القائمة
-  const maxAllowedInstallment = s > 0 ? (s * dbrLimit) - o : 0;
-  const dbr = maxAllowedInstallment > 0 ? maxAllowedInstallment : 0; 
+  const maxAllowedDeduction = s * maxDeductionRatio;
+  const dbr = s > 0 ? Math.max(0, maxAllowedDeduction - o) : 0; // القسط الشهري المتاح بعد خصم الالتزامات
   
-  // المعادلة البنكية الدقيقة لحساب أقصى مبلغ تمويل بناءً على القسط الشهري والنسبة الثابتة والمدة
-  // إجمالي المستحق = القسط الشهري × عدد الشهور (n)
-  // إجمالي المستحق = مبلغ التمويل + (مبلغ التمويل × نسبة الفائدة السنوية × عدد السنوات)
-  // مبلغ التمويل = (القسط الشهري × n) / (1 + (r / 100 * y))
+  const monthlyRate = r / 100 / 12;
   const n = y * 12;
-  const totalPayable = dbr * n;
-  const annualRateDecimal = r / 100;
+  const maxLoan = dbr > 0 && monthlyRate > 0
+    ? (dbr * (1 - Math.pow(1 + monthlyRate, -n))) / monthlyRate
+    : dbr * n;
   
-  const maxLoan = (s > 0 && dbr > 0 && n > 0) 
-    ? totalPayable / (1 + (annualRateDecimal * y)) 
-    : 0;
+  const result = s > 0 ? `${money(maxLoan)} ` : '';
 
-  const result = maxLoan > 0 ? `${money(maxLoan)} ` : '';
+  // التحقق من تنبيهات القطاع الخاص والخدمة
+  let sectorWarning = '';
+  if (sector === 'private' && numService < 3 && numService > 0) {
+    sectorWarning = 'تنبيه: معظم البنوك تتطلب ألا تقل فترة الخدمة في العمل الحالي للقطاع الخاص عن 3 إلى 6 أشهر.';
+  }
 
   return (
     <div className="space-y-5">
+      {/* خيارات نوع التمويل وقطاع العمل */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input testid="loan-salary" label="الراتب الشهري (ر.س)" type="number" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="5913" />
-        <Input testid="loan-obligations" label="الالتزامات الشهرية القائمة" type="number" value={obligations} onChange={(e) => setObligations(e.target.value)} placeholder="0" />
-        
-        <Select testid="loan-sector" label="قطاع العمل" value={sector} onChange={(e) => setSector(e.target.value)}>
-          <option value="private">القطاع الخاص (الاستقطاع 33.3%)</option>
-          <option value="government">القطاع الحكومي (الاستقطاع حتى 55%)</option>
-          <option value="military">القطاع العسكري (الاستقطاع حتى 55%)</option>
-        </Select>
+        <div>
+          <label className="block text-sm font-medium mb-2 text-[#D4AF37]">نوع التمويل</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setLoanType('personal')}
+              className={`py-2 px-3 rounded-xl font-medium text-sm transition-all border ${
+                loanType === 'personal'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  : 'bg-background text-foreground border-border'
+              }`}
+            >
+              تمويل شخصي (33.3%)
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoanType('realestate')}
+              className={`py-2 px-3 rounded-xl font-medium text-sm transition-all border ${
+                loanType === 'realestate'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  : 'bg-background text-foreground border-border'
+              }`}
+            >
+              تمويل عقاري (حتى 70%)
+            </button>
+          </div>
+        </div>
 
-        <Select testid="loan-type" label="نوع التمويل" value={loanType} onChange={handleTypeChange}>
-          <option value="personal">تمويل شخصي</option>
-          <option value="realestate">تمويل عقاري</option>
-        </Select>
-
-        <Select testid="loan-bank" label="البنك الممول" value={bank} onChange={handleBankChange}>
-          {saudiBanks.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </Select>
-
-        <Input testid="loan-years" label="مدة السداد (سنوات)" type="number" value={years} onChange={(e) => setYears(e.target.value)} />
-        <Input testid="loan-rate" label="نسبة الأرباح السنوية %" type="number" step="0.05" value={rate} onChange={(e) => setRate(e.target.value)} />
+        <div>
+          <label className="block text-sm font-medium mb-2 text-[#D4AF37]">قطاع العمل</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSector('government')}
+              className={`py-2 px-3 rounded-xl font-medium text-sm transition-all border ${
+                sector === 'government'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  : 'bg-background text-foreground border-border'
+              }`}
+            >
+              حكومي (مدني/عسكري)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSector('private')}
+              className={`py-2 px-3 rounded-xl font-medium text-sm transition-all border ${
+                sector === 'private'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  : 'bg-background text-foreground border-border'
+              }`}
+            >
+              قطاع خاص
+            </button>
+          </div>
+        </div>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Input testid="loan-salary" label="الراتب الشهري (ر.س)" type="number" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="10000" />
+        <Input testid="loan-obligations" label="الالتزامات الشهرية" type="number" value={obligations} onChange={(e) => setObligations(e.target.value)} placeholder="0" />
+        <Input testid="loan-service" label="فترة الخدمة الحالية (أشهر)" type="number" value={serviceMonths} onChange={(e) => setServiceMonths(e.target.value)} placeholder="مثال: 6" />
+        <Input testid="loan-years" label="مدة السداد (سنوات)" type="number" value={years} onChange={(e) => setYears(e.target.value)} />
+        <Input testid="loan-rate" label="نسبة الفائدة السنوية %" type="number" step="0.1" value={rate} onChange={(e) => setRate(e.target.value)} />
+      </div>
+
+      {sectorWarning && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-500 text-sm">
+          {sectorWarning} (يشترط اعتماد الشركة لدى المُموّل).
+        </div>
+      )}
 
       <ResultBox 
         testid="loan-result" 
-        label={loanType === 'realestate' ? 'أقصى تمويل عقاري مقترح' : 'أقصى تمويل شخصي مقترح'} 
+        label="أقصى تمويل مقترح" 
         value={result} 
-        sub={`القسط الشهري المقدر: ~${money(dbr)} (يمثل ${(dbrLimit * 100).toFixed(1)}% من الراتب)`} 
+        sub={`قسط شهري ~ ${money(dbr)} — نسبة الاستقطاع النظامية ${(maxDeductionRatio * 100).toFixed(1)}%`} 
       />
-
-      {maxLoan > 0 && (
-        <ShareBar text={`أقصى تمويل يطلع لي بناءً على راتبي واستقطاع البنك: ${money(maxLoan)} على مدى ${y} سنوات بقسط ${money(dbr)} شهرياً`} />
-      )}
+      {maxLoan > 0 && <ShareBar text={`أقصى تمويل يطلع لي حسب دليل مطر: ${money(maxLoan)} على مدى ${y} سنوات`} />}
     </div>
   );
 }
 
 export function LoanCalculator() {
-  const [amount, setAmount] = useState('97500');
+  const [amount, setAmount] = useState('100000');
   const [years, setYears] = useState('5');
-  const [rate, setRate] = useState('4.25');
+  const [rate, setRate] = useState('6.5');
   const p = num(amount), y = num(years), r = num(rate);
-  
-  // حساب إجمالي الأرباح والقسط الشهري بناءً على معادلة البنوك السعودية للأرباح الثابتة
-  const totalInterest = p * (r / 100) * y;
-  const totalPayable = p + totalInterest;
+  const mr = r / 100 / 12;
   const n = y * 12;
-  const pmt = n > 0 ? totalPayable / n : 0;
-
+  const pmt = mr > 0 ? (p * mr) / (1 - Math.pow(1 + mr, -n)) : p / n;
+  const total = pmt * n;
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
         <Input testid="lc-amount" label="مبلغ التمويل" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <Input testid="lc-years" label="مدة السداد (سنوات)" type="number" value={years} onChange={(e) => setYears(e.target.value)} />
-        <Input testid="lc-rate" label="نسبة الأرباح السنوية %" type="number" step="0.05" value={rate} onChange={(e) => setRate(e.target.value)} />
+        <Input testid="lc-rate" label="فائدة سنوية %" type="number" step="0.1" value={rate} onChange={(e) => setRate(e.target.value)} />
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <ResultBox testid="lc-monthly" label="القسط الشهري" value={money(pmt)} />
-        <ResultBox testid="lc-total" label="إجمالي المدفوعات" value={money(totalPayable)} />
-        <ResultBox testid="lc-interest" label="إجمالي الأرباح" value={money(totalInterest)} />
+        <ResultBox testid="lc-total" label="إجمالي المدفوعات" value={money(total)} />
+        <ResultBox testid="lc-interest" label="إجمالي الفوائد" value={money(total - p)} />
       </div>
     </div>
   );
@@ -208,7 +162,7 @@ export function Zakat() {
   const [cash, setCash] = useState(''), [gold, setGold] = useState(''), [silver, setSilver] = useState(''), [debts, setDebts] = useState('0');
   const [goldPrice, setGoldPrice] = useState('300');
   const total = Math.max(0, num(cash) + num(gold) * num(goldPrice) - num(debts));
-  const nisab = 85 * num(goldPrice);
+  const nisab = 85 * num(goldPrice); // ~85g gold
   const zakat = total >= nisab ? total * 0.025 : 0;
   return (
     <div className="space-y-5">
@@ -220,12 +174,13 @@ export function Zakat() {
       </div>
       <ResultBox testid="z-total" label="إجمالي المال الخاضع" value={money(total)} sub={`النصاب التقديري: ${money(nisab)}`} />
       <ResultBox testid="z-zakat" label="مقدار الزكاة (2.5%)" value={zakat > 0 ? money(zakat) : 'لم يبلغ النصاب'} />
-      {zakat > 0 && <ShareBar text={`زكاة مالي: ${money(zakat)}`} />}
+      {zakat > 0 && <ShareBar text={`زكاة مالي: ${money(zakat)} — حسبتها من دليل مطر`} />}
     </div>
   );
 }
 
 export function Inheritance() {
+  // Simplified calculator: spouse + parents + sons/daughters
   const [estate, setEstate] = useState('1000000');
   const [gender, setGender] = useState('male');
   const [spouse, setSpouse] = useState(true);
@@ -235,14 +190,16 @@ export function Inheritance() {
   const S = num(sons), D = num(daughters);
   const hasChildren = S + D > 0;
 
+  // Fixed shares (fardh)
   let shares = {};
   let remaining = 1;
+  // Spouse
   if (spouse) {
-    if (gender === 'male') {
+    if (gender === 'male') { // deceased male, wife
       const share = hasChildren ? 1/8 : 1/4;
       shares['الزوجة'] = share;
       remaining -= share;
-    } else {
+    } else { // deceased female, husband
       const share = hasChildren ? 1/4 : 1/2;
       shares['الزوج'] = share;
       remaining -= share;
@@ -258,7 +215,9 @@ export function Inheritance() {
       shares['الأب'] = 1/6;
       remaining -= 1/6;
     }
+    // otherwise father takes asaba (rest)
   }
+  // Children (asaba): sons take 2x, daughters 1x
   if (hasChildren && remaining > 0) {
     const totalParts = 2 * S + D;
     if (S > 0) shares['كل ابن'] = (remaining * 2) / totalParts;
@@ -285,7 +244,7 @@ export function Inheritance() {
         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={mother} onChange={(e) => setMother(e.target.checked)} data-testid="inh-mother" /> يوجد أم</label>
       </div>
       <div data-testid="inh-result" className="rounded-2xl border-2 border-dashed border-[#D4AF37]/40 p-5 space-y-2">
-        <div className="text-sm text-muted-foreground mb-2">التقسيم التقريبي (لغرض إرشادي فقط):</div>
+        <div className="text-sm text-muted-foreground mb-2">التقسيم التقريبي (لغرض إرشادي فقط، راجع دار الإفتاء للحالات المعقّدة):</div>
         {Object.entries(shares).map(([k, v]) => (
           <div key={k} className="flex items-center justify-between text-sm border-b border-border/60 py-2">
             <span>{k}</span>
@@ -367,13 +326,14 @@ export function GoldPrice() {
 }
 
 export function EndOfService() {
-  const [salary, setSalary] = useState('5913'), [years, setYears] = useState('4'), [months, setMonths] = useState('9');
-  const [reason, setReason] = useState('resign');
+  const [salary, setSalary] = useState('10000'), [years, setYears] = useState('5'), [months, setMonths] = useState('0');
+  const [reason, setReason] = useState('resign'); // resign or terminate
   const s = num(salary), y = num(years) + num(months) / 12;
   let value = 0;
   if (reason === 'terminate') {
     value = Math.min(y, 5) * s * 0.5 + Math.max(0, y - 5) * s;
   } else {
+    // Resignation: less than 2y = 0, 2-5y = 1/3, 5-10 = 2/3, >10 = full
     if (y < 2) value = 0;
     else if (y < 5) value = (Math.min(y, 5) * s * 0.5 + Math.max(0, y - 5) * s) / 3;
     else if (y < 10) value = ((Math.min(y, 5) * s * 0.5 + Math.max(0, y - 5) * s) * 2) / 3;
@@ -390,16 +350,16 @@ export function EndOfService() {
         <Input testid="eos-years" label="سنوات الخدمة" type="number" value={years} onChange={(e) => setYears(e.target.value)} />
         <Input testid="eos-months" label="أشهر إضافية" type="number" value={months} onChange={(e) => setMonths(e.target.value)} />
       </div>
-      <ResultBox testid="eos-result" label="مكافأة نهاية الخدمة" value={money(value)} sub="حسب نظام العمل السعودي" />
+      <ResultBox testid="eos-result" label="مكافأة نهاية الخدمة" value={money(value)} sub="حسب نظام العمل السعودي (تقديري)" />
     </div>
   );
 }
 
 export function NetSalary() {
-  const [gross, setGross] = useState('5913');
+  const [gross, setGross] = useState('10000');
   const [gosi, setGosi] = useState(true);
   const g = num(gross);
-  const gosiRate = gosi ? 0.10 : 0;
+  const gosiRate = gosi ? 0.10 : 0; // employee share ~ 9.75%
   const deductions = g * gosiRate;
   const net = g - deductions;
   return (
@@ -469,11 +429,11 @@ export function Retirement() {
 }
 
 export function RentVsBuy() {
-  const [rent, setRent] = useState('2000'), [price, setPrice] = useState('500000'), [years, setYears] = useState('20'), [rate, setRate] = useState('4.8');
+  const [rent, setRent] = useState('2000'), [price, setPrice] = useState('500000'), [years, setYears] = useState('20'), [rate, setRate] = useState('6');
   const totalRent = num(rent) * 12 * num(years);
-  const p = num(price), y = num(years), r = num(rate) / 100; 
-  const totalBuy = p + (p * r * y);
-  const monthly = totalBuy / (y * 12);
+  const p = num(price), y = num(years), r = num(rate) / 100 / 12; const n = y * 12;
+  const monthly = r > 0 ? (p * r) / (1 - Math.pow(1 + r, -n)) : p / n;
+  const totalBuy = monthly * n;
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -549,7 +509,7 @@ export function BillSplit() {
 }
 
 export function Budget() {
-  const [income, setIncome] = useState('5913');
+  const [income, setIncome] = useState('10000');
   const [rows, setRows] = useState([{ label: 'إيجار', amount: '2000' }, { label: 'طعام', amount: '1500' }, { label: 'مواصلات', amount: '800' }]);
   const total = rows.reduce((s, r) => s + num(r.amount), 0);
   const remaining = num(income) - total;
