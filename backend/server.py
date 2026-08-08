@@ -223,7 +223,7 @@ async def robots_txt(request: Request):
 @api_router.post("/contact", response_model=ContactMessage)
 async def create_contact(payload: ContactCreate):
     obj = ContactMessage(**payload.model_dump())
-    await db.contacts.insert_one(obj.model_dump())
+    await db.contact_messages.insert_one(obj.model_dump())
     return obj
 
 @api_router.post("/remove-bg")
