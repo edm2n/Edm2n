@@ -40,7 +40,14 @@ app = FastAPI(title="Dalil Matar API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://edm2n.com", "https://www.edm2n.com", "http://localhost:3000", "*"],
+    allow_origins=[
+        "https://edm2n.com",
+        "https://www.edm2n.com",
+        "http://edm2n.com",
+        "http://www.edm2n.com",
+        "http://localhost:3000",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
