@@ -40,14 +40,6 @@ db = client[DB_NAME]
 
 app = FastAPI(title="Dalil Matar API")
 
-@app.middleware("http")
-async def force_domain_redirect(request: Request, call_next):
-    host = request.headers.get("host", "")
-    if "emergent.host" in host:
-        url = str(request.url).replace(host, "edm2n.com")
-        return RedirectResponse(url=url, status_code=301)
-    return await call_next(request)
-
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
