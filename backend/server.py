@@ -24,7 +24,6 @@ load_dotenv(ROOT_DIR / '.env')
 
 # --- Configurations ---
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "0bafe1f9f1ce74a9661408b796a122889891b657ba6e3d18a6caedb06508cef1")
-DEFAULT_VOICE_ID = os.getenv('DEFAULT_VOICE_ID', '21m00Tcm4TlDvq8ikWAM')
 MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://m6rgame_db_user:Matar2026@cluster0.8vg0pnm.mongodb.net/edm2n?appName=Cluster0')
 DB_NAME = os.getenv('DB_NAME', 'edm2n')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
@@ -103,9 +102,6 @@ class BioRequest(BaseModel):
 class TashkeelRequest(BaseModel):
     text: str
 
-class TTSRequest(BaseModel):
-    text: str
-    voice_id: Optional[str] = None
 
 class SmartFetchSaveBody(BaseModel):
     query: str
@@ -412,30 +408,6 @@ async def ai_tashkeel(req: TashkeelRequest):
         return {"text": text.strip()}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
-
-# ==================== TTS ENDPOINT ====================
-@api_router.post("/tts")
-async def text_to_speech_api(data: TTSRequest):
-    try:
-        text_content = data.text.strip() if data and data.text else ""
-        if not text_content:
-            raise HTTPException(status_code=400, detail="النص مطلوب")
-
-        tts = gTTS(text=text_content, lang='ar', slow=False)
-        audio_io = io.BytesIO()
-        tts.write_to_fp(audio_io)
-        audio_io.seek(0)
-        
-        if audio_io.getbuffer().nbytes == 0:
-            raise HTTPException(status_code=500, detail="فشل توليد الملف الصوتي")
-
-        return Response(content=audio_io.read(), media_type="audio/mpeg")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"TTS Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== ADMIN ROUTES ====================
 @api_router.post("/admin/login")
