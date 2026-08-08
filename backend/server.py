@@ -22,7 +22,7 @@ import requests
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# --- Configurations (مخفية وتعتمد على ملف الـ .env) ---
+# --- Configurations ---
 MONGO_URL = os.getenv('MONGO_URL', 'mongodb://localhost:27017')
 DB_NAME = os.getenv('DB_NAME', 'edm2n')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
@@ -99,7 +99,6 @@ class BioRequest(BaseModel):
 
 class TashkeelRequest(BaseModel):
     text: str
-
 
 class SmartFetchSaveBody(BaseModel):
     query: str
@@ -336,77 +335,6 @@ async def track_tool(slug: str):
     )
     return {"ok": True}
 
-# ==================== AI ENDPOINTS ====================
-@api_router.post("/ai/bio")
-async def ai_bio(req: BioRequest):
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
-    tone_map = {
-        "professional": "احترافية ورسمية",
-        "friendly": "ودّية وشخصية",
-        "creative": "إبداعية وممتعة",
-    }
-    tone_ar = tone_map.get(req.tone, "احترافية")
-    prompt = f"""اكتب لي بايو (سيرة قصيرة) باللغة العربية الفصحى بأسلوب {tone_ar}.
-
-الاسم: {req.name}
-المسمى الوظيفي / المجال: {req.job}
-المهارات والاهتمامات: {req.skills or 'غير محدد'}
-
-المتطلبات:
-- بالضبط 3 إلى 4 جمل قصيرة.
-- لا تضيف تحيّة ولا مقدمة، اكتب البايو مباشرة.
-- استخدم صيغة المتكلّم (أنا) لا صيغة الغائب.
-- اجعله جذاباً ومناسباً لمنصات تويتر وإنستقرام.
-- لا تستخدم رموز إيموجي كثيرة (رمز واحد أو اثنان بحد أقصى).
-"""
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"bio-{uuid.uuid4()}",
-            system_message="أنت كاتب محتوى عربي محترف تكتب البايو والسير الذاتية القصيرة."
-        ).with_model("anthropic", "claude-sonnet-4-6")
-        
-        text = ""
-        async for ev in chat.stream_message(UserMessage(text=prompt)):
-            if isinstance(ev, TextDelta):
-                text += ev.content
-            elif isinstance(ev, StreamDone):
-                break
-        return {"bio": text.strip()}
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI error: {e}")
-
-@api_router.post("/ai/tashkeel")
-async def ai_tashkeel(req: TashkeelRequest):
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
-    prompt = f"""أضف التشكيل الكامل (الحركات) للنص العربي التالي بشكل صحيح لغوياً.
-
-النص:
-{req.text}
-
-المتطلبات:
-- أعِد النص فقط مع التشكيل الكامل، بدون أي تعليق أو مقدمة.
-- لا تغيّر الكلمات، فقط أضف الحركات (فتحة، ضمة، كسرة، شدة، تنوين، سكون).
-"""
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"tashkeel-{uuid.uuid4()}",
-            system_message="أنت خبير في اللغة العربية والنحو، متخصص في تشكيل النصوص العربية."
-        ).with_model("anthropic", "claude-sonnet-4-6")
-        
-        text = ""
-        async for ev in chat.stream_message(UserMessage(text=prompt)):
-            if isinstance(ev, TextDelta):
-                text += ev.content
-            elif isinstance(ev, StreamDone):
-                break
-        return {"text": text.strip()}
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI error: {e}")
-
 # ==================== ADMIN ROUTES ====================
 @api_router.post("/admin/login")
 async def admin_login(body: LoginBody):
@@ -624,57 +552,6 @@ async def smart_fetch(body: SmartFetchBody, _: str = Depends(verify_admin)):
         cleaned_raw_text = universal_clean_text(raw_text)
         final_content = cleaned_raw_text
 
-        if EMERGENT_LLM_KEY:
-            try:
-                chat = LlmChat(
-                    api_key=EMERGENT_LLM_KEY,
-                    session_id=f"rewrite-{uuid.uuid4()}",
-                    system_message="""أنت كاتب صحفي عربي محترف ومتمكن من اللغة العربية الفصحى.
-مهمتك: إعادة كتابة المقالات بأسلوب احترافي فريد كأنك أنت من كتبها من الصفر.
-قواعدك الثابتة:
-- اكتب كأنك خبير في المجال يشرح لقارئ عربي ذكي
-- لا تنسخ جملة واحدة حرفياً من النص الأصلي
-- استخدم لغة عربية فصحى سلسة وجذابة
-- رتّب الأفكار منطقياً من العام للخاص
-- لا تذكر أنك ذكاء اصطناعي أو أنك أعدت صياغة شيء
-- ابدأ مباشرة بمحتوى المقال بدون مقدمات""",
-                ).with_model("anthropic", "claude-sonnet-4-6")
-
-                prompt = f"""اقرأ النص التالي جيداً، ثم اكتب مقالاً عربياً احترافياً كاملاً عن نفس الموضوع.
-
-تعليمات مهمة:
-✅ اكتب بضمير المتكلم أو الغائب حسب ما يناسب الموضوع
-✅ ابدأ بمقدمة جذابة تشدّ القارئ
-✅ قسّم المقال إلى فقرات واضحة بعناوين فرعية
-✅ استخدم أمثلة وتفاصيل توضيحية من معرفتك
-✅ اختم بخلاصة مفيدة
-✅ الطول المطلوب: 400-600 كلمة
-✅ احتفظ بأي روابط تحميل أو تورنت كما هي بصيغة [النص](الرابط)
-🚨 القاعدة الأهم: احتفظ بكل الروابط كما هي بصيغة Markdown ولا تحذف أي رابط مهما كان
-❌ لا تبدأ بعبارات مثل "هذا المقال" أو "في هذا النص" أو "تمت إعادة الصياغة"
-
-النص المصدر:
-{cleaned_raw_text[:5000]}
-
-اكتب المقال الآن:"""
-
-                rewritten_chunks = []
-                async for ev in chat.stream_message(UserMessage(text=prompt)):
-                    if isinstance(ev, TextDelta):
-                        rewritten_chunks.append(ev.content)
-                    elif isinstance(ev, StreamDone):
-                        break
-
-                if rewritten_chunks and len("".join(rewritten_chunks)) > 100:
-                    final_content = "".join(rewritten_chunks)
-                    logger.info(f"✅ تمت إعادة الصياغة بنجاح - {len(final_content)} حرف")
-                else:
-                    logger.warning("⚠️ الـ AI أرجع محتوى قصيراً جداً، سيُستخدم النص الأصلي")
-
-            except Exception as ai_err:
-                logger.warning(f"⚠️ فشل الذكاء الاصطناعي: {ai_err} - سيُستخدم النص الأصلي")
-
-        final_content = universal_clean_text(final_content)
         plain_excerpt = re.sub(r'[#*\[\]>]', '', final_content[:300]).strip()
         excerpt = plain_excerpt[:200] + "..." if len(plain_excerpt) > 200 else plain_excerpt
         formatted_content = final_content
