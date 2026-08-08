@@ -220,11 +220,15 @@ async def robots_txt(request: Request):
     ]
     return "\n".join(lines)
 
-@api_router.post("/contact", response_model=ContactMessage)
-async def create_contact(payload: ContactCreate):
-    obj = ContactMessage(**payload.model_dump())
-    await db.contact_messages.insert_one(obj.model_dump())
-    return obj
+@api_router.post("/contact")
+async def create_contact(item: ContactCreate):
+    try:
+        message_dict = ContactMessage(**item.model_dump()).model_dump()
+        await db.contact_messages.insert_one(message_dict)
+        return {"success": True, "message": "تم إرسال الرسالة بنجاح"}
+    except Exception as e:
+        logger.error(f"Error saving contact message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/remove-bg")
 async def remove_background_api(image: UploadFile = File(...)):
