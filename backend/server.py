@@ -22,9 +22,8 @@ import requests
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# --- Configurations ---
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "0bafe1f9f1ce74a9661408b796a122889891b657ba6e3d18a6caedb06508cef1")
-MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://m6rgame_db_user:Matar2026@cluster0.8vg0pnm.mongodb.net/edm2n?appName=Cluster0')
+# --- Configurations (مخفية وتعتمد على ملف الـ .env) ---
+MONGO_URL = os.getenv('MONGO_URL', 'mongodb://localhost:27017')
 DB_NAME = os.getenv('DB_NAME', 'edm2n')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'Matar@2026')
@@ -101,7 +100,6 @@ class BioRequest(BaseModel):
 
 class TashkeelRequest(BaseModel):
     text: str
-
 
 class SmartFetchSaveBody(BaseModel):
     query: str
