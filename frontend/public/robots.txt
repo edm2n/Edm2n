@@ -1,7 +1,12 @@
-User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /api/admin/
-
-Sitemap: https://edm2n.com/sitemap.xml
-Sitemap: https://edm2n.com/api/sitemap.xml
+@api_router.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt(request: Request):
+    base = _base_url_from_request(request)
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin",
+        "Disallow: /api/admin/",
+        "",
+        f"Sitemap: {base}/sitemap.xml",
+    ]
+    return "\n".join(lines)
